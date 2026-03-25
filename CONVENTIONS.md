@@ -1,8 +1,8 @@
 # Lab Project Conventions
 
-**Project**: Higher Echelon Vulnerability Testing Lab  
+**Project**:  Vulnerability Testing Lab  
 **Operator**: Jason — Cyberspace Response Assessment Instructor  
-**Organization**: Higher Echelon, Inc.  
+**Organization**: <TBD>  
 **Classification**: AUTHORIZED LAB ENVIRONMENT — for training use only
 
 ---

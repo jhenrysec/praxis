@@ -1,0 +1,11 @@
+# Terraform Variables Example
+# Copy to: scenarios/<name>/terraform.tfvars
+# NEVER commit the real version — set secrets via environment variables:
+#   export TF_VAR_proxmox_api_token="terraform@pve!terraform=your-token"
+
+proxmox_node         = "pve01"
+proxmox_endpoint     = "https://172.16.0.10:8006/"
+proxmox_api_token    = "SET_VIA_ENV_VAR_TF_VAR_proxmox_api_token"
+ssh_public_key_path  = "~/.ssh/lab_key.pub"
+datastore            = "local-zfs"
+scenario_name        = "scenario-name-here"

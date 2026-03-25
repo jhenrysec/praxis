@@ -1,0 +1,13 @@
+# Packer Variables Example
+# Copy to: packer/variables.pkrvars.hcl
+# NEVER commit the real version to git — only this .example file
+#
+# Set values via environment variables in your shell instead:
+#   export PKR_VAR_proxmox_token="your-token-here"
+
+proxmox_url          = "https://172.16.0.10:8006/api2/json"
+proxmox_username     = "terraform@pve"
+proxmox_token        = "SET_VIA_ENV_VAR_PKR_VAR_proxmox_token"
+proxmox_node         = "pve01"
+proxmox_storage_pool = "local-zfs"
+ssh_public_key       = "SET_VIA_ENV_VAR_PKR_VAR_ssh_public_key"

@@ -1,0 +1,13 @@
+# ansible/group_vars/windows/main.yml
+# Variables for all Windows hosts
+# Secrets injected from environment at deploy time
+
+---
+ansible_connection: winrm
+ansible_winrm_transport: ntlm
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5985
+
+# Set via environment or ansible-vault in production
+# ansible_user: Administrator
+# ansible_password: "{{ vault_windows_admin_password }}"

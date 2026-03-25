@@ -1,0 +1,4 @@
+# ansible/group_vars/linux/main.yml
+---
+ansible_connection: ssh
+ansible_python_interpreter: /usr/bin/python3

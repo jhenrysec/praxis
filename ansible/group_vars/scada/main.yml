@@ -1,0 +1,8 @@
+# ansible/group_vars/scada/main.yml
+---
+ansible_connection: ssh
+ansible_python_interpreter: /usr/bin/python3
+openplc_web_port: 8080
+modbus_port: 502
+ignition_port: 8088
+opcua_port: 4840

@@ -1,0 +1,16 @@
+# ansible/group_vars/all/main.yml
+---
+lab_mgmt_net: "172.16.0.0/24"
+lab_red_net: "10.10.1.0/24"
+lab_blue_net: "10.10.2.0/24"
+lab_ot_net: "192.168.100.0/24"
+
+proxmox_host: "172.16.0.10"
+
+# Lab identity
+lab_domain: "lab.local"
+lab_netbios: "LAB"
+lab_org: "Higher Echelon"
+
+# SSH key injected via cloud-init — Ansible uses the same key
+ansible_ssh_private_key_file: "~/.ssh/lab_key"

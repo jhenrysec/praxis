@@ -1,0 +1,62 @@
+# ansible/roles/lab-portal/templates/nginx-portal.conf.j2
+# nginx reverse proxy for the Higher Echelon Lab Portal
+# Serves portal-ui on :3000, proxies /api/* and WebSocket to portal-backend :4000
+
+server {
+    listen 3000;
+    server_name {{ proxmox_host }} localhost;
+
+    # Portal UI static files
+    root {{ repo_root }}/portal-ui/dist;
+    index index.html;
+
+    # React Router — serve index.html for all non-asset paths
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API proxy to portal-backend
+    location /api/ {
+        proxy_pass          http://127.0.0.1:4000;
+        proxy_http_version  1.1;
+        proxy_set_header    Host              $host;
+        proxy_set_header    X-Real-IP         $remote_addr;
+        proxy_set_header    X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header    X-Forwarded-Proto $scheme;
+
+        # Timeouts for long-running deploy requests
+        proxy_connect_timeout 10s;
+        proxy_read_timeout    300s;
+        proxy_send_timeout    300s;
+    }
+
+    # noVNC WebSocket proxy
+    location /novnc-proxy/ {
+        proxy_pass          http://127.0.0.1:4000;
+        proxy_http_version  1.1;
+        proxy_set_header    Upgrade    $http_upgrade;
+        proxy_set_header    Connection "upgrade";
+        proxy_set_header    Host       $host;
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+    }
+
+    # Status WebSocket
+    location /api/status/ws {
+        proxy_pass          http://127.0.0.1:4000;
+        proxy_http_version  1.1;
+        proxy_set_header    Upgrade    $http_upgrade;
+        proxy_set_header    Connection "upgrade";
+        proxy_set_header    Host       $host;
+        proxy_read_timeout  3600s;
+    }
+
+    # Security headers
+    add_header X-Frame-Options       DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy       strict-origin-when-cross-origin;
+
+    # Logs
+    access_log /var/log/nginx/portal-access.log;
+    error_log  /var/log/nginx/portal-error.log;
+}

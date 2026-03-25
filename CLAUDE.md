@@ -1,8 +1,8 @@
-# Higher Echelon Vulnerability Lab — Claude Code Project Memory
+# Vulnerability Lab — Claude Code Project Memory
 
 ## Project Identity
 - **Project**: Cybersecurity vulnerability testing lab — Proxmox VE 8.x
-- **Operator**: Jason — Cyberspace Response Assessment Instructor, Higher Echelon, Inc.
+- **Operator**: Jason — Instructor, <TBD>
 - **Model for coding tasks**: claude-opus-4-6
 - **Context**: Authorized training lab only. No real production credentials. No live networks.
 

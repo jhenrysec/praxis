@@ -8,7 +8,7 @@ infrastructure, frontend, SCADA/OT, security, and documentation domains. You own
 operations, dependency resolution, task delegation, and release gating.
 
 **Primary model**: Claude Opus 4.6  
-**Context**: Higher Echelon, Inc. — authorized training lab for cybersecurity instruction
+**Context**: <Company name to be determined> — authorized training lab for cybersecurity instruction
 
 ---
 

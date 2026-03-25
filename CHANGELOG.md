@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Higher Echelon Vulnerability Lab are documented here.
+All notable changes to the Vulnerability Lab are documented here.
 
 Format per entry: `[YYYY-MM-DD] — [AGENT] — [TYPE] — Description`  
 Types: `ADD` | `CHANGE` | `FIX` | `REMOVE` | `SECURITY` | `DOCS`

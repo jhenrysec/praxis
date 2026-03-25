@@ -1,6 +1,6 @@
-# Higher Echelon Vulnerability Testing Lab
+# Vulnerability Testing Lab
 
-**Operator**: Higher Echelon, Inc. — Cyberspace Response Assessment  
+**Operator**: <Company name to be determined> 
 **Platform**: Proxmox VE 8.x · Dell Precision 5820 · 64 GB RAM · 4 TB ZFS  
 **Automation**: Claude Code (Opus 4.6) · Terraform · Packer · Ansible  
 
@@ -303,6 +303,6 @@ This repository is designed for authorized training use only:
 ## License
 
 This project is for authorized educational and training use only.  
-Higher Echelon, Inc. — All Rights Reserved.
+<Company name to be determined> — All Rights Reserved.
 
 Not for redistribution. Not for use on production networks.

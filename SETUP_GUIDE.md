@@ -1,6 +1,6 @@
-# Claude Code Setup Guide — Higher Echelon Vulnerability Lab
+# Claude Code Setup Guide — <Company name to be determined> Vulnerability Lab
 
-**For**: Jason — Cyberspace Response Assessment Instructor  
+**For**: Jason — Instructor  
 **Goal**: Claude Code builds, tests, fixes, and documents the entire lab with minimal input  
 **Model**: Claude Opus 4.6 (set as default for all coding tasks)
 
@@ -55,7 +55,7 @@ Paste this exactly — edit the API key export to match your actual value:
 # Jason's Global Claude Code Preferences
 
 ## Identity
-- Cybersecurity instructor — 10+ years, US Army Cyber Command, Higher Echelon, Inc.
+- Cybersecurity instructor — 10+ years, US Army Cyber Command, <Company name to be determined>, Inc.
 - Clearance: TS-SCI | Certs: GCIH, GSEC, GSTRT, CySA+, PenTest+ | MSISE (SANS, in progress)
 - Expert-level: Go, Python, Bash, C, HTML — skip basic explanations
 

@@ -38,24 +38,24 @@ Based on the phase completion state, identify the next un-completed phase and su
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║        HIGHER ECHELON VULN LAB — PROJECT STATUS          ║
+║        VULN LAB — PROJECT STATUS                         ║
 ╠══════════════════════════════════════════════════════════╣
 ║ PHASE COMPLETION                                         ║
-║ ✅ Phase 1: Proxmox config                               ║
-║ ✅ Phase 2: ZFS storage                                  ║
+║ ✅ Phase 1: Proxmox config                              ║
+║ ✅ Phase 2: ZFS storage                                 ║
 ║ 🔄 Phase 3: Network bridges (in progress)               ║
-║ ⬜ Phase 4-10: Not started                               ║
+║ ⬜ Phase 4-10: Not started                              ║
 ╠══════════════════════════════════════════════════════════╣
 ║ ARTIFACTS BUILT                                          ║
-║ Templates:   X / 8 expected                             ║
-║ TF modules:  X / 3 expected                             ║
-║ Scenarios:   X / 4 initial                              ║
-║ Ansible roles: X / 8 expected                           ║
-║ Docs pages:  X created                                  ║
+║ Templates:   X / 8 expected                              ║
+║ TF modules:  X / 3 expected                              ║
+║ Scenarios:   X / 4 initial                               ║
+║ Ansible roles: X / 8 expected                            ║
+║ Docs pages:  X created                                   ║
 ╠══════════════════════════════════════════════════════════╣
 ║ TOOLS ON THIS MACHINE                                    ║
-║ Terraform: X.X.X  Packer: X.X.X  Ansible: X.X.X        ║
-║ Node: X.X.X  Go: X.X.X  Proxmox: reachable/not          ║
+║ Terraform: X.X.X  Packer: X.X.X  Ansible: X.X.X          ║
+║ Node: X.X.X  Go: X.X.X  Proxmox: reachable/not           ║
 ╠══════════════════════════════════════════════════════════╣
 ║ RECENT CHANGES (last 3)                                  ║
 ║ ...from CHANGELOG.md                                     ║

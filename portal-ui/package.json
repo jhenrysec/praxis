@@ -2,7 +2,7 @@
   "name": "portal-ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Higher Echelon Lab Portal — Student and instructor web interface",
+  "description": "Lab Portal — Student and instructor web interface",
   "scripts": {
     "dev":        "vite",
     "build":      "tsc -b && vite build",

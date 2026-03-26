@@ -70,7 +70,19 @@
       "Bash(wget * | bash)"
     ]
   },
-
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=process.env.CLAUDE_TOOL_FILE||''; if(f.endsWith('.ts')||f.endsWith('.tsx')) process.exit(0); if(f.endsWith('.hcl')) process.exit(0); if(f.endsWith('.yml')||f.endsWith('.yaml')) process.exit(0);\""
+          }
+        ]
+      }
+    ]
+  },
   "includeCoAuthoredBy": true,
   "cleanupPeriodDays": 30,
 

@@ -215,6 +215,59 @@ Add new scenarios at any time:
 ```
 /new-scenario <describe the attack chain and learning objectives>
 ```
+## Threat Intelligence Integration
+
+Scenarios can be built directly from real-world threat intelligence sources.
+The `INTEL_AGENT` ingests MITRE ATT&CK pages, CISA advisories, ICS-CERT
+advisories, incident response reports, and whitepapers — then generates
+a structured brief that grounds every scenario build in actual adversary behavior.
+
+### Build a Scenario from a CISA Advisory
+
+```bash
+# In Claude Code:
+/intel-scenario --source https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-144a \
+                --fidelity balanced
+```
+
+### Build from a MITRE ATT&CK Group Page
+
+```bash
+/intel-scenario --source https://attack.mitre.org/groups/G0114/ \
+                --fidelity strict \
+                --difficulty Advanced
+```
+
+### Enrich an Existing Scenario
+
+```bash
+/intel-enrich scada_modbus_recon \
+              --source https://www.cisa.gov/uscert/ics/advisories/icsa-22-258-05
+```
+
+### What INTEL_AGENT Extracts
+
+From every source, the agent runs five extraction passes:
+
+| Layer | Content | Consumed by |
+|---|---|---|
+| 1 — Attack Chain | Ordered TTP sequence with ATT&CK IDs | ORCHESTRATOR |
+| 2 — Topology | Network conditions that enabled the attack | INFRA_AGENT |
+| 3 — Infrastructure | Products, versions, substitutions | INFRA_AGENT + SCADA_AGENT |
+| 4 — IOC Artifacts | Pre-staged evidence for blue team/forensics | Ansible |
+| 5 — Dressing | Sector-accurate documents, data, AD structure | Content generation |
+
+The generated brief is stored in `intel_briefs/` and committed to git —
+providing a permanent, traceable record linking every scenario to its
+real-world source material.
+
+### Fidelity Levels
+
+| Level | Use case |
+|---|---|
+| `strict` | Exercise replication, certification scenarios, SOC evaluations |
+| `balanced` | Standard classroom instruction (default) |
+| `loose` | Threat actor TTP profiles without exact incident replication |
 
 ---
 

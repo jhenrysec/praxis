@@ -1,8 +1,8 @@
 # Lab Project Conventions
 
 **Project**:  Vulnerability Testing Lab  
-**Operator**: Jason — Cyberspace Response Assessment Instructor  
-**Organization**: <TBD>  
+**Operator**: Jason — Instructor  
+**Organization**:  
 **Classification**: AUTHORIZED LAB ENVIRONMENT — for training use only
 
 ---

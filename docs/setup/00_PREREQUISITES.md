@@ -103,7 +103,7 @@ Generate a dedicated key pair for lab automation:
 
 ```bash
 # Generate key (use no passphrase for unattended Ansible/Packer use)
-ssh-keygen -t ed25519 -f ~/.ssh/lab_key -N "" -C "higher-echelon-lab"
+ssh-keygen -t ed25519 -f ~/.ssh/lab_key -N "" -C "vuln-lab"
 
 # Verify
 ls -la ~/.ssh/lab_key*

@@ -8,7 +8,7 @@
 - **Capacity**: 20 simultaneous student slots
 
 ## Stack at a Glance
-- Hypervisor: Proxmox VE 8.3+ on Dell Precision 5820 (64GB RAM, 4TB ZFS)
+- Hypervisor: Proxmox VE 9.1+ on Dell Precision 5820 (64GB RAM, 4TB ZFS)
 - IaC: Terraform >= 1.9 + bpg/proxmox provider >= 0.66
 - Templates: Packer >= 1.11 + proxmox-iso builder
 - Config mgmt: Ansible Core >= 2.17

@@ -47,7 +47,7 @@ check_env() {
 
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}║   Higher Echelon Lab — Prerequisites Check       ║${RESET}"
+echo -e "${CYAN}${BOLD}║             Lab — Prerequisites Check            ║${RESET}"
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════╝${RESET}"
 echo ""
 

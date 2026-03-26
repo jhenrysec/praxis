@@ -620,3 +620,75 @@ how much space each VM disk is actually using on disk after thin provisioning
 Per @skills/PACKER_ANSIBLE_SKILL.md, write the autounattend.xml section
 that installs the VirtIO balloon and SCSI drivers during the Windows PE phase
 ```
+## INTEL-GROUNDED SCENARIO BUILDS
+
+### `/intel-scenario` — Build from threat intelligence source
+
+**From a CISA advisory (balanced fidelity — default):**
+```
+/intel-scenario --source https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-144a
+```
+INTEL_AGENT fetches the advisory, runs all five extraction passes, generates
+the intel brief YAML, then triggers the orchestrator to build the full scenario.
+Includes topology requirements, VM specs with substitutions, IOC artifact staging,
+and sector-appropriate dressing documents.
+
+**From a MITRE ATT&CK group page (strict fidelity):**
+```
+/intel-scenario --source https://attack.mitre.org/groups/G0114/ \
+                --fidelity strict \
+                --difficulty Advanced
+```
+Strict fidelity enforces that every objective maps to a named technique in the source
+and that the adversary's known tool avoidances (no Metasploit, LOLBins only)
+are enforced as constraints on valid solution paths.
+
+**Blue team / forensics track from an IR report:**
+```
+/intel-scenario --source https://dragos.com/resource/... \
+                --fidelity balanced \
+                --focus forensics \
+                --team pair
+```
+Focuses scenario design on artifact discovery and incident reconstruction
+rather than red team execution. Pre-stages IOCs as a live crime scene.
+
+**Operator pastes whitepaper content (paywall or auth-required sources):**
+```
+/intel-scenario --source paste --sector energy --fidelity balanced
+```
+Claude Code will prompt for content paste, then proceed with full extraction.
+
+---
+
+### `/intel-enrich` — Enrich an existing scenario
+
+**Add ATT&CK coverage from a new source:**
+```
+/intel-enrich scada_modbus_recon \
+              --source https://www.cisa.gov/uscert/ics/advisories/icsa-22-258-05
+```
+INTEL_AGENT reads the existing scenario card, extracts from the source,
+diffs the two, and produces a proposal:
+- Documentation updates (safe, applied immediately with confirmation)
+- Structural changes (new VMs or rules — require explicit approval)
+- Gaps acknowledged (what can't be replicated)
+
+**ATT&CK coverage audit only:**
+```
+/intel-enrich cred_access_kerberoasting \
+              --source https://attack.mitre.org/techniques/T1558/003/ \
+              --layers 1,4
+```
+Runs only Layer 1 (attack chain) and Layer 4 (artifacts) extraction.
+Useful for quick ATT&CK coverage improvements without full enrichment.
+
+**Auto-apply documentation changes:**
+```
+/intel-enrich ics_ot_pivot \
+              --source https://dragos.com/resource/... \
+              --auto-apply
+```
+Documentation-only changes (ATT&CK table updates, objective rewording,
+citation additions) are applied without a review prompt.
+Structural changes still require explicit approval.

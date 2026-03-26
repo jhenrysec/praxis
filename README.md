@@ -51,7 +51,7 @@ Proxmox installation and configuration walkthrough.
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/higher-echelon-vuln-lab.git
+git clone https://github.com/YOUR-USERNAME/vuln-lab.git
 cd higher-echelon-vuln-lab
 
 # Install Claude Code
@@ -303,6 +303,6 @@ This repository is designed for authorized training use only:
 ## License
 
 This project is for authorized educational and training use only.  
-<Company name to be determined> — All Rights Reserved.
+Jason — All Rights Reserved.
 
 Not for redistribution. Not for use on production networks.

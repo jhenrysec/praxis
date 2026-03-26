@@ -1,4 +1,4 @@
-# Command Usage Examples — Higher Echelon Vulnerability Lab
+# Command Usage Examples — Vulnerability Lab
 
 All examples are typed directly into the Claude Code terminal prompt.
 

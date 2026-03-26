@@ -1,0 +1,943 @@
+# intel_briefs/volt_typhoon_ics_pivot_2025-06-01.yaml
+#
+# EXAMPLE BRIEF — for documentation and onboarding purposes
+# Demonstrates a complete intel brief generated from a CISA advisory
+# describing Volt Typhoon TTPs against US critical infrastructure.
+#
+# This is a representative example. Specific details are drawn from
+# publicly available CISA Advisory AA23-144A and related reporting.
+# Not operator-provided — generated as reference example.
+
+# ── METADATA ─────────────────────────────────────────────────────────────────
+metadata:
+  schema_version: "1.0"
+  generated_by: INTEL_AGENT
+  generated_date: "2025-06-01"
+  fidelity: balanced
+
+  source:
+    type: cisa_advisory
+    title: "People's Republic of China State-Sponsored Cyber Actor Living off the Land to Evade Detection"
+    url: "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-144a"
+    date: "2023-05-24"
+    authors: ["CISA", "NSA", "FBI", "ACSC", "CCCS", "NCSC-NZ", "NCSC-UK"]
+    tlp: WHITE
+    operator_notes: ""
+
+  adversary:
+    name: Volt Typhoon
+    aliases: ["BRONZE SILHOUETTE", "Vanguard Panda", "DEV-0391"]
+    motivation: pre-positioning
+    target_sectors: [energy, water, transportation, communications, defense]
+    known_tools: ["certutil", "netsh", "wmic", "ntdsutil", "PowerShell",
+                  "living-off-the-land binaries (LOLBins)"]
+    sophistication: nation_state
+
+# ── LAYER 1: ATTACK SCHEME OF MANEUVER ───────────────────────────────────────
+attack_scheme:
+  summary: >
+    Volt Typhoon gained initial access via exploitation of internet-facing
+    network appliances, then used exclusively built-in Windows tooling
+    (LOLBins) to avoid detection while conducting extended reconnaissance.
+    The adversary demonstrated unusual patience — conducting passive OT
+    recon for weeks before any manipulation — and prioritized stealth over
+    speed throughout the intrusion chain.
+
+  phases:
+    - order: 1
+      phase: Initial Access
+      tactic_id: TA0001
+      technique: T1190
+      technique_name: Exploit Public-Facing Application
+      ics_technique: false
+      adversary_action: >
+        Exploited known vulnerabilities in internet-facing network appliances
+        (Fortinet FortiGuard, Ivanti Connect Secure, NETGEAR routers).
+        No phishing — direct exploitation of unpatched management interfaces.
+      why_it_worked: >
+        Devices were internet-exposed and unpatched months after CVE disclosure.
+        Management interfaces were publicly accessible with no IP allowlisting.
+      lab_objective: >
+        Student must identify and exploit the exposed boundary service on vmbr2
+        using the provided CVE analog. Must demonstrate the exploit, not brute force.
+      detection_opportunity: >
+        Pre-exploit scanning visible in web server access logs.
+        Successful exploit attempt distinguishable from normal traffic pattern.
+      detection_artifacts:
+        - "nginx access log — unusual URI patterns pre-exploitation"
+        - "auth.log — successful login from unexpected source IP"
+      fidelity_note: >
+        FortiGate/Ivanti not available in lab. Substituted: nginx 1.18
+        running CVE-2021-41773 path traversal analog. Technique preserved —
+        unauthenticated remote access to boundary device.
+
+    - order: 2
+      phase: Persistence
+      tactic_id: TA0003
+      technique: T1053.005
+      technique_name: Scheduled Task/Job — Scheduled Task
+      ics_technique: false
+      adversary_action: >
+        Created scheduled tasks using native Windows schtasks.exe.
+        No custom malware or implants dropped at any stage.
+        Used wmic.exe, certutil.exe for additional LOLBin persistence.
+      why_it_worked: >
+        Signature-based EDR did not flag built-in Windows tool usage.
+        Scheduled task blended with legitimate admin tasks in the environment.
+      lab_objective: >
+        Student must establish persistence on the engineering workstation
+        using only built-in Windows tools. No Metasploit, no custom
+        executables. Task must survive reboot and be discoverable in Event Log.
+      detection_opportunity: "Event ID 4698 — scheduled task created"
+      detection_artifacts:
+        - "Security log: Event ID 4698 (task created)"
+        - "Security log: Event ID 4688 (process creation — schtasks.exe)"
+        - "System log: Event ID 7045 (new service installed, if applicable)"
+      instructor_only: false
+
+    - order: 3
+      phase: Defense Evasion
+      tactic_id: TA0005
+      technique: T1027.013
+      technique_name: Obfuscated Files or Information — Encrypted/Encoded File
+      ics_technique: false
+      adversary_action: >
+        Used certutil.exe to encode and decode payloads, avoiding
+        dropping recognizable file signatures. All tooling was
+        native Windows — no third-party offensive tools observed.
+      why_it_worked: "certutil.exe is signed by Microsoft — not flagged by most AV"
+      lab_objective: >
+        Student must use certutil for payload staging without triggering
+        the simulated AV detection rule in the scenario.
+      detection_opportunity: >
+        Event ID 4688 process creation showing certutil.exe with
+        encode/decode arguments is anomalous and detectable.
+      detection_artifacts:
+        - "Security log: Event ID 4688 — certutil.exe with -encode or -decode args"
+
+    - order: 4
+      phase: Discovery
+      tactic_id: TA0007
+      technique: T1018
+      technique_name: Remote System Discovery
+      ics_technique: false
+      adversary_action: >
+        Conducted internal reconnaissance using nltest, net commands,
+        and PowerShell to enumerate domain structure, trust relationships,
+        and connected network segments before lateral movement.
+      why_it_worked: "Built-in tools produced no alerts on the unmonitored IT network"
+      lab_objective: >
+        Student must enumerate the domain, identify the historian's dual-homed
+        adapters, and document the OT subnet before proceeding to pivot.
+        Discovery must precede any OT access — graded in sequence.
+      detection_opportunity: >
+        Unusual LDAP queries, net group commands, and repeated
+        nltest calls visible in Windows Security log.
+      detection_artifacts:
+        - "Security log: Event ID 4661 — sensitive object handle"
+        - "Security log: Event ID 4768/4769 — Kerberos ticket requests to new targets"
+
+    - order: 5
+      phase: Lateral Movement
+      tactic_id: TA0008
+      technique: T1021.002
+      technique_name: Remote Services — SMB/Windows Admin Shares
+      ics_technique: false
+      adversary_action: >
+        Moved laterally using stolen credentials and SMB admin shares.
+        Used wmic for remote execution. Did not use PsExec or
+        other third-party lateral movement tools.
+      why_it_worked: >
+        Legitimate credentials obtained during discovery phase.
+        No east-west filtering between IT workstations and server segment.
+      lab_objective: >
+        Student must pivot from initial access host to engineering workstation
+        using harvested credentials and SMB. Must demonstrate the pivot,
+        not re-exploit the boundary.
+      detection_opportunity: "Event ID 4624 logon type 3 from unexpected source"
+      detection_artifacts:
+        - "Security log: Event ID 4624 — network logon"
+        - "Security log: Event ID 4648 — explicit credential use"
+        - "Security log: Event ID 5140 — network share accessed"
+
+    - order: 6
+      phase: Collection (ICS)
+      tactic_id: TA0009
+      technique: T0842
+      technique_name: Network Sniffing
+      ics_technique: true
+      adversary_action: >
+        Passively monitored OT network traffic for an extended period
+        before any write operations. Read Modbus register map to
+        understand the process before acting. Demonstrated patience
+        uncommon in less sophisticated adversaries.
+      why_it_worked: >
+        No anomaly detection on OT network. Passive Modbus reads
+        are indistinguishable from legitimate HMI polling.
+        No baseline established for comparison.
+      lab_objective: >
+        Student must capture and analyze OT traffic passively using
+        Wireshark or tcpdump. Must document the Modbus register map
+        (coil addresses, holding register addresses, observed values)
+        BEFORE performing any write operations.
+        This objective is explicitly sequenced — graded in order.
+      detection_opportunity: >
+        Read-only Modbus traffic pattern (FC01, FC03 only) from
+        unexpected source IP — distinguishable from normal HMI polling
+        by source address. Visible in OT SPAN/TAP if configured.
+      detection_artifacts:
+        - "OT network capture — FC01/FC03 reads from non-HMI source"
+        - "Historian anomaly — new data source without corresponding tag configuration"
+      instructor_only: false
+
+    - order: 7
+      phase: Impair Process Control
+      tactic_id: TA0104
+      technique: T0836
+      technique_name: Modify Parameter
+      ics_technique: true
+      adversary_action: >
+        Modified process control parameters via Modbus TCP writes
+        after extended passive reconnaissance. Changes were targeted
+        and process-aware — not random coil toggling.
+      why_it_worked: >
+        No write protection on Modbus holding registers.
+        No process anomaly alerting configured.
+        Changes plausible within normal operational variance —
+        not immediately detected.
+      lab_objective: >
+        Student must write to at least one holding register with a
+        value outside the safe operating range documented during
+        passive recon phase. Must be able to explain the process impact.
+      detection_opportunity: >
+        Historian data spike outside normal operating range.
+        HMI alarm trigger if alarm setpoints configured.
+        Modbus write traffic (FC06) in OT network capture.
+      detection_artifacts:
+        - "Historian InfluxDB — tag value outside normal range"
+        - "HMI alarm log — high/low process alarm"
+        - "OT network capture — FC06 write from non-HMI source"
+
+  constraints:
+    prohibited:
+      - "Using Metasploit modules for any phase (Volt Typhoon avoided non-native tooling)"
+      - "Dropping custom executables or scripts to disk"
+      - "Conducting noisy port scans (adversary prioritized stealth)"
+      - "Performing OT writes before completing passive recon phase"
+    required_conditions:
+      - "Passive OT recon must precede any write operations (graded in sequence)"
+      - "All lateral movement must use harvested credentials, not re-exploitation"
+      - "Persistence must survive a simulated reboot"
+
+# ── LAYER 2: TOPOLOGY CONTEXT ─────────────────────────────────────────────────
+topology_context:
+  available_in_source: true
+
+  sector: energy
+  subsector: electric_utility
+  environment_description: >
+    Regional electric utility with corporate IT network connected to
+    operational technology (OT) network supporting substation SCADA.
+    Engineering workstations on the IT segment had direct protocol
+    access to field devices for maintenance purposes. A historian
+    server was dual-homed between IT and OT networks.
+
+  critical_topology_facts:
+    - "Historian dual-homed between IT and OT — single pivot point with no compensating controls"
+    - "Engineering workstation on IT segment with direct Modbus TCP access to PLCs"
+    - "No east-west filtering on IT segment — DC reachable from any IT host"
+    - "OT network had no IDS/IPS — passive traffic invisible to defenders"
+    - "Field devices reachable directly from EWS — no application layer proxy"
+    - "Internet-facing management appliance exposed without IP allowlisting"
+
+  what_made_it_vulnerable:
+    - condition: "Historian dual-homed without compensating controls"
+      enables: "IT→OT pivot without traversing a firewall"
+      lab_implementation: >
+        Historian VM gets two network adapters:
+        vmbr2 (10.10.2.50/24) and vmbr3 (192.168.100.50/24).
+        No firewall between adapters — same as source environment.
+
+    - condition: "EWS has direct Modbus TCP access to PLC"
+      enables: "OT process manipulation from compromised IT host"
+      lab_implementation: >
+        pfSense PERMIT TCP/502 from 10.10.2.30 (EWS) to
+        192.168.100.10 (OpenPLC). This is a legitimate business rule,
+        not a misconfiguration — students must understand this distinction.
+      is_misconfiguration: false
+
+    - condition: "No east-west filtering on IT segment"
+      enables: "Lateral movement via PTH without firewall traversal"
+      lab_implementation: >
+        DC (10.10.2.20) and EWS (10.10.2.30) both on vmbr2.
+        No ACL between them. Historian also on vmbr2 IT adapter.
+
+    - condition: "No OT network monitoring"
+      enables: "Passive reconnaissance invisible to defenders"
+      lab_implementation: >
+        No IDS on vmbr3. Modbus reads generate no alerts.
+        Blue team scenario variant can add SPAN port to historian
+        and pre-stage NetFlow data for detection exercise.
+
+  network_zones_present: [corporate_IT, OT_SCADA, internet_boundary]
+
+  lab_zone_mapping:
+    - source_zone: internet_boundary
+      lab_bridge: vmbr2
+      ip_range: "10.10.2.0/24"
+      notes: "Boundary nginx VM on vmbr2 represents internet-facing appliance"
+    - source_zone: corporate_IT
+      lab_bridge: vmbr2
+      ip_range: "10.10.2.0/24"
+      notes: "IT segment — attacker, EWS, DC, historian IT adapter all here"
+    - source_zone: OT_SCADA
+      lab_bridge: vmbr3
+      ip_range: "192.168.100.0/24"
+      notes: "OT segment — historian OT adapter, OpenPLC"
+
+  topology_requirements:
+    - requirement: "Historian must be dual-homed IT and OT"
+      implements_as:
+        type: vm_dual_home
+        detail: >
+          Historian VM: adapter 0 on vmbr2 (10.10.2.50/24),
+          adapter 1 on vmbr3 (192.168.100.50/24).
+          Set in Terraform vm config, both adapters active.
+      rationale: "Sole IT→OT pivot path per source"
+      is_misconfiguration: false
+
+    - requirement: "EWS Modbus access to PLC — no firewall"
+      implements_as:
+        type: pfSense_rule
+        detail: "PERMIT TCP 10.10.2.30 → 192.168.100.10 port 502"
+      rationale: "Legitimate maintenance access abused by adversary"
+      is_misconfiguration: false
+
+    - requirement: "Exposed boundary service on IT segment"
+      implements_as:
+        type: vm_config
+        detail: "nginx VM on vmbr2 at 10.10.2.5, port 80/443 accessible from attacker"
+      rationale: "Represents internet-facing appliance entry vector"
+      is_misconfiguration: true
+
+# ── LAYER 3: INFRASTRUCTURE INVENTORY ────────────────────────────────────────
+infrastructure:
+  available_in_source: true
+
+  assets:
+    - role: boundary_appliance
+      zone: internet_boundary
+      source_product: "Fortinet FortiGate 60F"
+      source_vendor: Fortinet
+      source_version: "FortiOS 6.0.12"
+      source_patch_state: "Unpatched — CVE-2022-40684 disclosed 8 months prior"
+      source_cve: "CVE-2022-40684"
+      source_cve_description: "Authentication bypass on administrative interface"
+      source_notes: "Internet-facing management interface — primary entry vector"
+
+      substitution:
+        needed: true
+        template: tpl-ubuntu-2204
+        service: "nginx 1.18.0"
+        version: "1.18.0"
+        ansible_role: "vulnerable-nginx-boundary"
+        technique_preserved: true
+        fidelity_loss: >
+          FortiOS-specific post-exploitation not available.
+          Lateral movement from FortiGate to internal network
+          differs from lab — in lab, initial foothold is directly
+          on the IT segment rather than on a perimeter device.
+        fidelity_note: >
+          FortiGate not reproducible in lab (licensing + hardware).
+          Nginx CVE-2021-41773 path traversal provides analogous
+          unauthenticated access to IT-segment host. Attack technique
+          (T1190 Exploit Public-Facing Application) fully preserved.
+        licensing_constraint: true
+
+      vm_config:
+        cpu_cores: 1
+        memory_mb: 1024
+        disk_gb: 20
+        network_adapters:
+          - bridge: vmbr2
+            ip: "10.10.2.5"
+            gateway: "10.10.2.1"
+
+    - role: engineering_workstation
+      zone: corporate_IT
+      source_product: "Windows 10 Enterprise"
+      source_vendor: Microsoft
+      source_version: "21H2"
+      source_patch_state: "Missing KB5015807 — unpatched as of incident"
+      source_notes: "Domain-joined, direct Modbus access to PLC for maintenance"
+
+      substitution:
+        needed: false
+        template: tpl-win10-workstation
+        ansible_role: "windows-unpatched-21H2"
+        technique_preserved: true
+        fidelity_loss: ""
+        fidelity_note: "Exact template match — no substitution required"
+        licensing_constraint: false
+
+      vm_config:
+        cpu_cores: 2
+        memory_mb: 4096
+        disk_gb: 60
+        network_adapters:
+          - bridge: vmbr2
+            ip: "10.10.2.30"
+            gateway: "10.10.2.1"
+        additional_config:
+          - "pfSense rule: PERMIT TCP/502 from this IP to PLC"
+          - "Domain join to lab.local during Ansible provisioning"
+          - "Stage dressing documents in user profile"
+          - "Stage scheduled task artifact (IOC-001)"
+
+    - role: historian
+      zone: dual_homed
+      source_product: "OSIsoft PI Server 2018 SP3"
+      source_vendor: OSIsoft
+      source_version: "2018 SP3"
+      source_patch_state: unknown
+      source_notes: >
+        Dual-homed. Collected process data from OT network,
+        served dashboards to IT network. Primary IT/OT pivot path.
+
+      substitution:
+        needed: true
+        template: tpl-ubuntu-2204
+        service: "InfluxDB 2.7"
+        version: "2.7.x"
+        ansible_role: "influxdb-historian-dualhomed"
+        technique_preserved: true
+        fidelity_loss: >
+          PI Server's proprietary AF (Asset Framework) and PI tags
+          not replicated. PI Server-specific lateral movement
+          techniques not available.
+        fidelity_note: >
+          OSIsoft PI Server requires commercial license.
+          InfluxDB 2.7 preserves the dual-homed topology, process
+          data collection, and historian dashboard behavior.
+          The pivot technique (exploiting dual-homed host) is fully preserved.
+        licensing_constraint: true
+
+      vm_config:
+        cpu_cores: 2
+        memory_mb: 4096
+        disk_gb: 60
+        network_adapters:
+          - bridge: vmbr2
+            ip: "10.10.2.50"
+            gateway: "10.10.2.1"
+          - bridge: vmbr3
+            ip: "192.168.100.50"
+            gateway: ""
+        additional_config:
+          - "No default route on vmbr3 adapter — routing only, no gateway"
+          - "InfluxDB pre-populated with 30 days of process data"
+          - "Grafana dashboard configured for process visualization"
+
+    - role: domain_controller
+      zone: corporate_IT
+      source_product: "Windows Server 2019"
+      source_vendor: Microsoft
+      source_version: "2019"
+      source_notes: "AD DS domain controller, same IT segment as EWS"
+
+      substitution:
+        needed: false
+        template: tpl-win-server-2022
+        ansible_role: "ad-domain-controller"
+        technique_preserved: true
+        fidelity_loss: "Minor version difference (2022 vs 2019) — no technique impact"
+        licensing_constraint: false
+
+      vm_config:
+        cpu_cores: 2
+        memory_mb: 4096
+        disk_gb: 80
+        network_adapters:
+          - bridge: vmbr2
+            ip: "10.10.2.20"
+            gateway: "10.10.2.1"
+
+    - role: plc
+      zone: OT_SCADA
+      source_product: "Schweitzer SEL-3530 RTAC"
+      source_vendor: Schweitzer Engineering Laboratories
+      source_version: "R134"
+      source_notes: "Modbus TCP server on port 502. No authentication."
+
+      substitution:
+        needed: true
+        template: tpl-openplc
+        service: "OpenPLC Runtime v3"
+        version: "v3"
+        ansible_role: "openplc-configure"
+        technique_preserved: true
+        fidelity_loss: >
+          SEL-specific SCADA commands not available.
+          SEL Fast Message protocol not emulated.
+          Modbus TCP register behavior preserved.
+        fidelity_note: >
+          Physical SEL hardware not feasible in VM lab.
+          OpenPLC provides identical Modbus TCP attack surface.
+          Register map configured to match typical RTAC layout.
+        licensing_constraint: false
+
+      vm_config:
+        cpu_cores: 2
+        memory_mb: 2048
+        disk_gb: 20
+        network_adapters:
+          - bridge: vmbr3
+            ip: "192.168.100.10"
+            gateway: "192.168.100.1"
+        additional_config:
+          - "OpenPLC program: volt_typhoon_process.st"
+          - "Register map: HR0=temp_setpoint, HR1=pressure_setpoint, HR2=flow_rate"
+          - "Coil 0: main_pump_enable"
+
+# ── LAYER 4: IOC AND ARTIFACT CATALOG ────────────────────────────────────────
+ioc_catalog:
+  available_in_source: true
+
+  artifacts:
+    - id: IOC-001
+      type: scheduled_task
+      host_role: engineering_workstation
+      description: >
+        Scheduled task created via schtasks.exe using LOLBin pattern.
+        Represents Volt Typhoon persistence mechanism.
+      source_detail: "Event ID 4698, task name resembles legitimate system task"
+
+      staging:
+        method: ansible_task
+        ansible_role: stage-windows-artifacts
+        file_path: "Windows Task Scheduler — not a file"
+        file_source: "artifacts/volt_typhoon/event_4698_template.xml"
+        pre_scenario: true
+
+      detection_value: >
+        Tests ability to identify suspicious scheduled tasks in
+        Task Scheduler and correlate with Event ID 4698 in Security log.
+      intentional: false
+      difficulty: medium
+      hint_available: true
+
+    - id: IOC-002
+      type: windows_event
+      host_role: engineering_workstation
+      description: >
+        Process creation events for LOLBin usage:
+        certutil.exe with -encode argument, wmic.exe with remote query.
+        Pre-staged in Security log as Event ID 4688 entries.
+      source_detail: "Event ID 4688 — certutil.exe, wmic.exe, net.exe"
+
+      staging:
+        method: ansible_task
+        ansible_role: stage-windows-artifacts
+        file_path: "Windows Event Log — Security channel"
+        file_source: "artifacts/volt_typhoon/event_4688_sequence.evtx"
+        pre_scenario: true
+
+      detection_value: >
+        Tests ability to identify LOLBin usage pattern in process
+        creation logs. Key skill: distinguishing malicious certutil
+        usage from legitimate admin use.
+      intentional: false
+      difficulty: hard
+
+    - id: IOC-003
+      type: network_pcap
+      host_role: analyst_vm
+      description: >
+        Pre-captured PCAP showing passive Modbus read sequence
+        (FC01 and FC03 only) from unexpected source IP over a
+        simulated 72-hour window compressed to representative sample.
+        Placed on analyst VM for forensic analysis track.
+      source_detail: "Passive Modbus reconnaissance — FC01/FC03 only, no writes"
+
+      staging:
+        method: file_drop
+        ansible_role: stage-pcap-artifacts
+        file_path: "/home/analyst/artifacts/capture_2024-03-15.pcap"
+        file_source: "artifacts/volt_typhoon/modbus_passive_recon.pcap"
+        pre_scenario: true
+
+      detection_value: >
+        Tests Wireshark/Modbus protocol analysis skills.
+        Students must identify: source IP, FC codes used,
+        register addresses read, absence of write operations.
+        Key learning: passive recon precedes active manipulation.
+      intentional: false
+      difficulty: medium
+
+    - id: IOC-004
+      type: filesystem_artifact
+      host_role: engineering_workstation
+      description: >
+        Encoded payload staged in Temp directory via certutil.
+        Represents intermediate stage of LOLBin execution chain.
+      source_detail: "certutil.exe -encode output in C:\\Windows\\Temp\\"
+
+      staging:
+        method: file_drop
+        ansible_role: stage-windows-artifacts
+        file_path: "C:\\Windows\\Temp\\svc_config_update.b64"
+        file_source: "artifacts/volt_typhoon/encoded_payload.b64"
+        pre_scenario: true
+
+      detection_value: >
+        Tests filesystem forensics — finding non-standard file
+        in Temp directory. Tests understanding of certutil encoding
+        and ability to decode and analyze content.
+      intentional: false
+      difficulty: easy
+
+    - id: IOC-005
+      type: log_entry
+      host_role: historian
+      description: >
+        Unexpected outbound connection attempts in syslog from
+        historian's OT-side adapter — suggests adversary discovered
+        the dual-homed host and attempted to use it as pivot.
+      source_detail: "Syslog entries showing lateral connection attempts"
+
+      staging:
+        method: ansible_task
+        ansible_role: stage-linux-artifacts
+        file_path: "/var/log/syslog"
+        file_source: "artifacts/volt_typhoon/historian_syslog_inject.txt"
+        pre_scenario: true
+
+      detection_value: >
+        Tests ability to find pivot evidence on dual-homed Linux host.
+        Students must correlate syslog connection attempts with
+        timeline of Windows lateral movement events.
+      intentional: false
+      difficulty: hard
+
+  raw_iocs:
+    ip_addresses: []
+    domains: []
+    file_hashes: []
+    file_names:
+      - "svc_config_update.b64"
+      - "update_check.bat"
+    registry_keys:
+      - "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache"
+    mutex_names: []
+    user_agents: []
+    yara_rules: []
+
+# ── LAYER 5: OPERATIONAL CONTEXT AND DRESSING ────────────────────────────────
+operational_context:
+  sector: energy
+  subsector: electric_utility
+  org_type: "Regional electric transmission cooperative"
+
+  environment_narrative: >
+    Tri-County Electric Cooperative operates a regional transmission network
+    serving three rural counties. The cooperative's engineering team uses
+    an EWS to perform remote maintenance on substation SCADA systems.
+    Process data is aggregated by a historian server and displayed on
+    dashboards accessible to operations staff on the IT network.
+    The cooperative has limited cybersecurity staffing and relies
+    on perimeter defenses that have not been reviewed in 18 months.
+
+  regulatory_context:
+    - "NERC CIP (CIP-002 through CIP-011) — applicable to BES Cyber Systems"
+    - "NERC CIP-007-6 — Systems Security Management (patch management)"
+    - "NERC CIP-013-1 — Supply Chain Risk Management"
+
+  scenario_brief_for_students: >
+    You are a CISA threat hunter responding to a tip that a nation-state
+    actor has pre-positioned access inside a regional electric cooperative's
+    network. The cooperative's MSSP flagged unusual scheduled task creation
+    on an engineering workstation two weeks ago but the alert was not
+    investigated. Your mission: determine the initial access vector,
+    reconstruct the full intrusion chain, identify any OT access or
+    manipulation, and produce a findings report mapped to MITRE ATT&CK.
+    You have read access to the cooperative's network. You are not
+    authorized to modify any systems — this is a hunt/forensics exercise.
+
+  instructor_notes: >
+    The network diagram (DRESS-004) on the EWS desktop reveals the full
+    topology including the historian's dual-homed status — this is intentional.
+    Real environments have these documents. Students who enumerate thoroughly
+    find it and work faster. Do not penalize for using it.
+    
+    DRESS-003 (vendor access request) is a deliberate red herring.
+    The vendor had legitimate access scheduled but did not execute the intrusion.
+    Students who pursue the vendor lead are learning to evaluate and eliminate
+    hypotheses — acceptable behavior, note it in the debrief.
+    
+    IOC-005 (historian syslog) is the hardest artifact to find. Reserve the
+    hint for teams that have completed all other objectives and are stuck.
+    
+    The OpenPLC register map in the SOP document (DRESS-001) is the same
+    register map used in the actual OpenPLC scenario configuration — students
+    who read the document before touching Modbus have a significant advantage.
+    This rewards preparation and document review, as in real incidents.
+    
+    Strict fidelity note: In the real incident, adversaries conducted passive
+    recon for weeks. In the 4-6 hour lab, the passive recon phase should take
+    30-45 minutes minimum. Enforce sequencing — a student who skips straight
+    to Modbus writes without documenting the register map from passive capture
+    has not demonstrated the technique the scenario is teaching.
+
+  dressing_assets:
+    - id: DRESS-001
+      host_role: engineering_workstation
+      type: document
+      filename: "Substation_42_Maintenance_SOP_v3.2.pdf"
+      file_path: "C:\\Users\\j.harrison\\Documents\\Work\\Substation_42_Maintenance_SOP_v3.2.pdf"
+      format: pdf
+      content_brief: >
+        A 6-page NERC CIP-007 compliant maintenance SOP for Substation 42.
+        Letterhead: "Tri-County Electric Cooperative — Operations & Engineering".
+        Sections: (1) Scope and Purpose, (2) Pre-maintenance checklist,
+        (3) Modbus register access procedure — includes a table of registers:
+        HR0=Temperature Setpoint (safe range 0-350°F), HR1=Pressure Setpoint
+        (safe range 0-85 PSI), HR2=Cooling Flow Rate (safe range 20-100%),
+        Coil 0=Main Pump Enable. (4) Emergency procedures, (5) Sign-off log.
+        PLC IP address 192.168.100.10 appears explicitly in the document.
+        Document appears legitimate — boring, bureaucratic, realistic.
+      sector_references:
+        - "NERC CIP-007-6"
+        - "Substation automation terminology"
+        - "Relay and RTU device references"
+      training_purpose: clue
+      generates_via: pdf_skill
+      ansible_task: "stage-dressing-ews"
+
+    - id: DRESS-002
+      host_role: engineering_workstation
+      type: document
+      filename: "Weekly_Shift_Handover_2024-03-15.docx"
+      file_path: "C:\\Users\\j.harrison\\Desktop\\Weekly_Shift_Handover_2024-03-15.docx"
+      format: docx
+      content_brief: >
+        A shift handover log for the week ending 2024-03-15. One page.
+        Table format with columns: Date, Operator, Substation, Parameter, Reading, Normal Range, Notes.
+        12 rows of normal readings — all values within safe operating range.
+        HR0 temperature at 287°F (safe: 0-350), HR1 pressure at 62 PSI (safe: 0-85),
+        HR2 flow at 78% (safe: 20-100%). No alarms. No anomalies.
+        Signed by "J. Harrison, Control Systems Engineer".
+        This establishes the baseline — students can compare to historian data
+        to identify when the setpoint change occurred.
+      sector_references:
+        - "Shift handover terminology for electric utility operations"
+      training_purpose: baseline
+      generates_via: docx_skill
+      ansible_task: "stage-dressing-ews"
+
+    - id: DRESS-003
+      host_role: engineering_workstation
+      type: document
+      filename: "Vendor_Remote_Access_Request_2024-02.pdf"
+      file_path: "C:\\Users\\j.harrison\\Documents\\Work\\Vendor_Remote_Access_Request_2024-02.pdf"
+      format: pdf
+      content_brief: >
+        A two-page vendor remote access request form. Letterhead: "Tri-County Electric Cooperative".
+        Vendor: "Industrial Automation Services LLC". Purpose: "Annual firmware update — SEL relay fleet".
+        Access window: 2024-02-12 through 2024-02-14. Systems accessed: Substation 42 RTAC.
+        Approvals signed by J. Harrison and the IT Security coordinator.
+        Document looks entirely legitimate — the vendor access was real and authorized.
+        Red herring: this access occurred before the intrusion and has no connection to it.
+        Students who investigate this lead will find nothing suspicious.
+      sector_references:
+        - "NERC CIP-005-6 vendor access management terminology"
+        - "SEL relay firmware update procedures"
+      training_purpose: red_herring
+      generates_via: pdf_skill
+      ansible_task: "stage-dressing-ews"
+
+    - id: DRESS-004
+      host_role: engineering_workstation
+      type: diagram
+      filename: "SCADA_Network_Diagram_v4_INTERNAL.pdf"
+      file_path: "C:\\Users\\j.harrison\\Documents\\Work\\SCADA_Network_Diagram_v4_INTERNAL.pdf"
+      format: pdf
+      content_brief: >
+        A network topology diagram marked "INTERNAL — NOT FOR DISTRIBUTION" in red header.
+        Shows: IT network (10.10.2.0/24) with DC at 10.10.2.20, EWS at 10.10.2.30,
+        historian at 10.10.2.50. OT network (192.168.100.0/24) with historian at
+        192.168.100.50, OpenPLC at 192.168.100.10. Historian shown with two network
+        connections (dual-homed) with a dashed line connecting both segments.
+        pfSense firewall shown between segments with annotation "Permit TCP/502
+        from EWS to PLC (Maintenance)". Document looks like a real Visio export.
+        Finding this document significantly accelerates the student's work.
+        Intentional — real environments have these documents lying around.
+      sector_references:
+        - "Standard network diagram conventions"
+        - "IT/OT topology documentation practices"
+      training_purpose: reward
+      generates_via: pdf_skill
+      ansible_task: "stage-dressing-ews"
+
+    - id: DRESS-005
+      host_role: historian
+      type: process_data
+      filename: "InfluxDB pre-populated dataset"
+      file_path: "/var/lib/influxdb/"
+      format: influxdb_backup
+      content_brief: >
+        30 days of process data in InfluxDB, measurement name "substation_42".
+        Tags: location=substation_42, unit=rtac_01.
+        Fields: temp_setpoint (float, normal range 280-295),
+                pressure_setpoint (float, normal range 60-65),
+                flow_rate (float, normal range 75-82),
+                pump_status (boolean, normally true).
+        Data is normal for all 30 days EXCEPT the last 6 hours:
+        temp_setpoint spikes to 412 (above 350 safe limit),
+        pressure_setpoint jumps to 91 (above 85 safe limit).
+        The anomaly timestamp should be discoverable and correlatable
+        with the scheduled task creation timestamp on the EWS.
+        Script-generated with realistic noise/variance on normal readings.
+      sector_references:
+        - "Electric utility process historian data structure"
+        - "SCADA tag naming conventions"
+      training_purpose: clue
+      generates_via: script
+      ansible_task: "influxdb-historian-dualhomed"
+
+    - id: DRESS-006
+      host_role: domain_controller
+      type: ad_structure
+      filename: "Active Directory organizational structure"
+      file_path: "Active Directory"
+      format: ad_objects
+      content_brief: >
+        AD domain lab.local with realistic electric utility structure.
+        OUs: Operations, Engineering, IT, SCADA_Systems, Contractors, Service_Accounts.
+        Realistic user accounts with job titles appropriate to a small utility cooperative.
+        Key accounts: j.harrison (Control Systems Engineer, EWS owner),
+        svc_historian (historian service account, has access to both IT and OT systems),
+        svc_scada_read (Kerberoastable service account, SPN set, weak password).
+        Group structure: IT_Admins, Engineering_Staff, Operations_Staff, SCADA_Operators.
+      sector_references:
+        - "Electric utility organizational structure"
+        - "Typical SCADA service account naming conventions"
+      training_purpose: context
+      generates_via: ad_structure
+      ansible_task: "ad-domain-controller"
+
+  active_directory_structure:
+    domain: "utility.lab.local"
+    netbios: "UTILITY"
+    ous:
+      - "OU=Operations,DC=utility,DC=lab,DC=local"
+      - "OU=Engineering,DC=utility,DC=lab,DC=local"
+      - "OU=IT,DC=utility,DC=lab,DC=local"
+      - "OU=SCADA_Systems,DC=utility,DC=lab,DC=local"
+      - "OU=Contractors,DC=utility,DC=lab,DC=local"
+      - "OU=Service_Accounts,DC=utility,DC=lab,DC=local"
+    users:
+      - sam_account_name: j.harrison
+        full_name: "James Harrison"
+        title: "Control Systems Engineer"
+        department: Engineering
+        description: "Primary EWS owner — Substation 42 maintenance lead"
+        spn: ""
+        password_policy: standard
+        training_role: target
+
+      - sam_account_name: svc_historian
+        full_name: "Historian Service"
+        title: "Service Account"
+        department: SCADA_Systems
+        description: "Historian data collection service — dual-homed access"
+        spn: "HTTP/historian.utility.lab.local"
+        password_policy: weak
+        training_role: pivot
+
+      - sam_account_name: svc_scada_read
+        full_name: "SCADA Read Service"
+        title: "Service Account"
+        department: SCADA_Systems
+        description: "Read-only SCADA data access"
+        spn: "SCADA/historian.utility.lab.local"
+        password_policy: weak
+        training_role: service_account
+
+      - sam_account_name: it.admin
+        full_name: "IT Administrator"
+        title: "IT Systems Administrator"
+        department: IT
+        description: ""
+        spn: ""
+        password_policy: strong
+        training_role: admin
+
+# ── SUBSTITUTION SUMMARY ─────────────────────────────────────────────────────
+substitution_summary:
+  total_assets: 5
+  exact_matches: 2
+  substitutions: 3
+  gaps: 0
+
+  substitution_list:
+    - source_product: "Fortinet FortiGate 60F (FortiOS 6.0.12)"
+      lab_substitute: "Ubuntu 22.04 + nginx 1.18 (CVE-2021-41773 analog)"
+      technique_preserved: true
+      fidelity_loss: >
+        FortiOS-specific post-exploitation path not available.
+        In-lab, initial foothold is on IT segment directly.
+        Initial access technique (T1190) fully preserved.
+
+    - source_product: "OSIsoft PI Server 2018 SP3"
+      lab_substitute: "Ubuntu 22.04 + InfluxDB 2.7"
+      technique_preserved: true
+      fidelity_loss: >
+        PI Server AF (Asset Framework) and proprietary PI tags not replicated.
+        Historian pivot technique fully preserved via dual-homed configuration.
+
+    - source_product: "Schweitzer SEL-3530 RTAC"
+      lab_substitute: "OpenPLC Runtime v3 (Modbus TCP)"
+      technique_preserved: true
+      fidelity_loss: >
+        SEL Fast Message protocol and RTAC-specific commands not available.
+        Modbus TCP attack surface identical to source.
+
+  gap_list: []
+
+# ── SCENARIO CARD METADATA ────────────────────────────────────────────────────
+scenario_card_metadata:
+  suggested_id: "SCEN-005"
+  suggested_name: "volt_typhoon_ics_pivot"
+  difficulty: Advanced
+  estimated_hours: 5
+  team_size: solo
+  focus_areas: [red_team, forensics, hunt]
+
+  mitre_enterprise_techniques:
+    - T1190
+    - T1053.005
+    - T1027.013
+    - T1018
+    - T1021.002
+
+  mitre_ics_techniques:
+    - T0842
+    - T0836
+
+  prerequisites:
+    knowledge:
+      - "Windows lateral movement fundamentals"
+      - "Active Directory enumeration"
+      - "Basic Modbus protocol understanding"
+      - "Wireshark packet analysis"
+    tools:
+      - "Living-off-the-land Windows tools (certutil, wmic, schtasks, net, nltest)"
+      - "Wireshark with Modbus dissector"
+      - "pymodbus or modpoll"
+      - "Impacket suite"
+
+  source_citations:
+    - title: "People's Republic of China State-Sponsored Cyber Actor Living off the Land to Evade Detection"
+      url: "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-144a"
+      date: "2023-05-24"
+      relevance: "Primary source for all five extraction layers"

@@ -1,6 +1,6 @@
 # Lab UI
 
-Scenario deployment dashboard for the Higher Echelon Vulnerability Lab.
+Scenario deployment dashboard for the Vulnerability Lab.
 
 **Built by**: FRONTEND_AGENT during `/phase 9`  
 **Stack**: React 19 · Vite 6 · TypeScript · Tailwind CSS 4 · Zustand · TanStack Query

@@ -120,7 +120,7 @@ cat ~/.ssh/lab_key.pub
 Complete all of these before running `/phase 1`:
 
 - [ ] BIOS settings verified on Proxmox hardware
-- [ ] Proxmox VE 8.x ISO downloaded and USB flashed
+- [ ] Proxmox VE 9.1 ISO downloaded and USB flashed
 - [ ] Management workstation on same LAN as Proxmox host (or planned to be)
 - [ ] All tools installed and version-verified on management workstation
 - [ ] Python packages installed (pywinrm, ansible-lint, collections)

@@ -60,7 +60,7 @@ portal-ui ──HTTP──▶ nginx :3000
 
 ```bash
 # 1. Install and configure the database
-cd ~/higher-echelon-vuln-lab
+cd ~/vuln-lab
 source scripts/lab-env.local.sh
 ansible-playbook ansible/site.yml --tags lab-database
 
@@ -76,7 +76,7 @@ npm run migrate
 npm run seed  # creates admin@lab.local / ChangeMe123!@#
 
 # 4. Deploy portal-backend and portal-ui
-cd ~/higher-echelon-vuln-lab
+cd ~/vuln-lab
 ansible-playbook ansible/site.yml --tags lab-portal
 ```
 

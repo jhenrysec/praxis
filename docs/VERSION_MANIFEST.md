@@ -9,7 +9,7 @@
 
 | Component | Version | Source | Notes |
 |---|---|---|---|
-| Proxmox VE | 8.3.x | proxmox.com/downloads | Verify: `pveversion` |
+| Proxmox VE | 9.1.x | proxmox.com/downloads | Verify: `pveversion` |
 | Debian base | 12 (Bookworm) | Included in Proxmox ISO | |
 | ZFS | 2.2.x | Included in Proxmox | Verify: `zfs version` |
 

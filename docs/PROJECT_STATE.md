@@ -1,6 +1,6 @@
 # Project State
 
-**Project**: Higher Echelon Vulnerability Testing Lab  
+**Project**: Vulnerability Testing Lab  
 **Last updated**: (update at start/end of every session)  
 **Maintained by**: ORCHESTRATOR — update with `/status` or `/orchestrate`
 

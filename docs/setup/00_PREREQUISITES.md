@@ -87,7 +87,7 @@ Download before starting Phase 4 (Packer templates) — some are large.
 
 | ISO | Size | Source | Used for |
 |---|---|---|---|
-| Proxmox VE 8.x | ~1.1 GB | proxmox.com/downloads | Host OS (Phase 1) |
+| Proxmox VE 9.1 | ~1.1 GB | proxmox.com/downloads | Host OS (Phase 1) |
 | Kali Linux 2024.x installer | ~4.1 GB | kali.org/get-kali | Attacker template |
 | Windows Server 2022 eval | ~5.4 GB | microsoft.com/evalcenter | DC + victim templates |
 | Windows 10 22H2 eval | ~5.8 GB | microsoft.com/evalcenter | Workstation template |

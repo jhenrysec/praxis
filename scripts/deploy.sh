@@ -42,7 +42,7 @@ fi
 print_header() {
   echo ""
   echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${RESET}"
-  echo -e "${CYAN}║     HIGHER ECHELON — VULNERABILITY LAB DEPLOYMENT         ║${RESET}"
+  echo -e "${CYAN}║               VULNERABILITY LAB DEPLOYMENT                ║${RESET}"
   echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${RESET}"
   echo ""
 }

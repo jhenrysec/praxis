@@ -2,7 +2,7 @@
   "name": "portal-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Higher Echelon Lab Portal — API server with JWT auth, RBAC, and Proxmox integration",
+  "description": "Lab Portal — API server with JWT auth, RBAC, and Proxmox integration",
   "scripts": {
     "dev":     "tsx watch src/index.ts",
     "build":   "tsc --project tsconfig.json",

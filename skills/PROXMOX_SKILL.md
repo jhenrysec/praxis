@@ -1,7 +1,7 @@
 # Skill: Proxmox VE 8.x
 
 **Applies to**: INFRA_AGENT  
-**Version target**: Proxmox VE 8.3+ (Debian 12 Bookworm base)  
+**Version target**: Proxmox VE 9.1+ (Debian 13 Trixie base)  
 **Last reviewed**: 2025-06
 
 ---
@@ -14,7 +14,7 @@
 # https://www.proxmox.com/en/downloads/proxmox-virtual-environment/iso
 
 # Flash with dd (Linux):
-dd if=proxmox-ve_8.x-1.iso of=/dev/sdX bs=4M status=progress && sync
+dd if=proxmox-ve_9.1-1.iso of=/dev/sdX bs=4M status=progress && sync
 
 # Dell Precision 5820 BIOS settings:
 # Advanced → CPU Config → Intel Virtualization Technology: Enabled
@@ -25,19 +25,19 @@ dd if=proxmox-ve_8.x-1.iso of=/dev/sdX bs=4M status=progress && sync
 
 ### ZFS Installer Options
 - Select ZFS (RAID0) for single-disk — enables zvol snapshots and compression
-- ashift=12 for 4K-sector drives (default in PVE 8 — verify: `zdb | grep ashift`)
+- ashift=12 for 4K-sector drives (default in PVE 9 — verify: `zdb | grep ashift`)
 - Do NOT select RAID1 unless you have two identical disks
 
 ### Package Repository Configuration
 ```bash
 # /etc/apt/sources.list.d/pve-enterprise.list — disable:
-# deb https://enterprise.proxmox.com/debian/pve bookworm pve-enterprise
+# deb https://enterprise.proxmox.com/debian/pve trixie pve-enterprise
 
 # /etc/apt/sources.list — add:
-deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+deb http://download.proxmox.com/debian/pve trixie pve-no-subscription
 
 # /etc/apt/sources.list.d/ceph.list — add (if using Ceph):
-# deb https://download.proxmox.com/debian/ceph-quincy bookworm no-subscription
+# deb https://download.proxmox.com/debian/ceph-quincy trixie no-subscription
 
 apt update && apt full-upgrade -y
 ```

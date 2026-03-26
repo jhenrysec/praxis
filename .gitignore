@@ -1,0 +1,56 @@
+# Secrets — never commit
+*.env
+.env.*
+*.tfvars
+!*.tfvars.example
+*.pem
+*.key
+*.token
+
+# Terraform state
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Packer cache
+packer_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Claude Code auto-memory (machine-local, not for sharing)
+.claude/memory/
+
+# Keep settings and commands (these ARE shareable)
+!.claude/settings.json
+!.claude/commands/
+!.claude/rules/
+
+# Portal backend — real .env (secrets inside)
+portal-backend/.env
+!portal-backend/.env.example
+
+# Portal UI environment
+portal-ui/.env
+portal-ui/.env.local
+portal-ui/.env.*.local
+
+# PM2 runtime files
+portal-backend/ecosystem.config.js
+*.pm2
+
+# Portal build outputs
+portal-backend/dist/
+portal-ui/dist/
+
+# node_modules for both portal packages
+portal-backend/node_modules/
+portal-ui/node_modules/
+
+# Database — never commit actual DB data
+*.sql.dump
+*.pg_dump
+database/data/

@@ -55,7 +55,7 @@ Paste this exactly — edit the API key export to match your actual value:
 # Jason's Global Claude Code Preferences
 
 ## Identity
-- Cybersecurity instructor — 10+ years, US Army Cyber Command, <Company name to be determined>, Inc.
+- Cybersecurity instructor — 10+ years
 - Clearance: TS-SCI | Certs: GCIH, GSEC, GSTRT, CySA+, PenTest+ | MSISE (SANS, in progress)
 - Expert-level: Go, Python, Bash, C, HTML — skip basic explanations
 
@@ -82,20 +82,10 @@ Paste this exactly — edit the API key export to match your actual value:
 
 ```bash
 # Create the project directory
-mkdir -p ~/higher-echelon-vuln-lab
-cd ~/higher-echelon-vuln-lab
+mkdir -p ~/vuln-lab
+cd ~/vuln-lab
 git init
 git checkout -b main
-```
-
-### Copy in the skeleton files
-
-From the `lab-project-skeleton.zip` downloaded earlier, copy the contents here:
-
-```bash
-# Unzip the skeleton into the project root
-unzip ~/Downloads/lab-project-skeleton.zip -d .
-# This gives you: agents/, skills/, docs/, CHANGELOG.md, CONVENTIONS.md, ORCHESTRATOR.md
 ```
 
 ---
@@ -118,7 +108,7 @@ unzip ~/Downloads/claude-code-setup.zip -d .
 
 ### Verify the structure looks like this:
 ```
-higher-echelon-vuln-lab/
+vuln-lab/
 ├── CLAUDE.md                        ← loaded every session
 ├── CHANGELOG.md
 ├── CONVENTIONS.md
@@ -198,7 +188,7 @@ mkdir -p ~/.claude-memory
 ## Part 6 — First Launch and Verification
 
 ```bash
-cd ~/higher-echelon-vuln-lab
+cd ~/vuln-lab
 claude
 ```
 
@@ -353,13 +343,13 @@ CLAUDE.md reloads automatically after compaction — no context is lost.
 Claude Code supports multiple terminals. Run one session per major area:
 ```bash
 # Terminal 1: Infrastructure work
-cd ~/higher-echelon-vuln-lab && claude  # /infra tasks
+cd ~/vuln-lab && claude  # /infra tasks
 
 # Terminal 2: Scenario development  
-cd ~/higher-echelon-vuln-lab && claude  # /new-scenario tasks
+cd ~/vuln-lab && claude  # /new-scenario tasks
 
 # Terminal 3: Documentation review
-cd ~/higher-echelon-vuln-lab && claude  # /docs tasks
+cd ~/vuln-lab && claude  # /docs tasks
 ```
 All three share the same `.claude/memory/` and the same `CLAUDE.md`.
 

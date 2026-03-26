@@ -168,7 +168,7 @@ Covers IT/enterprise attacks, ICS/SCADA exploitation, and full-chain IT→OT sce
 ## Quick Start
 
 ### Prerequisites
-- Proxmox VE 8.x node configured per `docs/setup/01_PROXMOX_SETUP.md`
+- Proxmox VE 9.1 node configured per `docs/setup/01_PROXMOX_SETUP.md`
 - Packer, Terraform, and Ansible installed on management host
 - All VM templates built (see `docs/setup/03_PACKER_TEMPLATES.md`)
 

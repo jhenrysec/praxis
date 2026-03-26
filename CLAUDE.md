@@ -19,6 +19,7 @@
 - Console: noVNC proxied through portal-backend WebSocket
 - Networks: vmbr0=mgmt(172.16.0.0/24) vmbr1=red(10.10.x.0/24) vmbr2=blue(10.10.x.0/24) vmbr3=ot(192.168.x.0/24)
   Note: x = slot number (1-20) for per-student VLAN isolation
+- Intel Briefs: YAML structured briefs in intel_briefs/ — ground truth for scenario builds
 
 ## Non-Negotiable Rules
 - No placeholders — all code must be complete and runnable
@@ -32,7 +33,13 @@
 - All SQL uses parameterized queries — zero string interpolation
 - bcrypt cost factor 12 minimum for all password hashing
 - Audit log entry for every instructor/admin action
-
+- Intel briefs are committed to git — they are the paper trail for why
+  scenarios are built the way they are
+- Every substitution must preserve the ATT&CK technique being taught
+- Dressing assets must use sector-accurate terminology — no generic placeholders
+- Source citations must appear in scenario cards — training must be traceable
+  to real-world threat intelligence
+  
 ## Agent Routing — use these slash commands
 - `/infra`        — Proxmox, Terraform, Packer, Ansible tasks
 - `/scada`        — ICS/OT, protocols, OpenPLC, Ignition, GRFICSv2
@@ -43,12 +50,25 @@
 - `/docs`         — Changelogs, scenario cards, reference docs
 - `/orchestrate`  — Multi-phase tasks, dependency resolution
 - `/portal-build` — Full portal system build (all layers in order)
+- `/intel-scenario`  — Build a new scenario from a threat intelligence source
+- `/intel-enrich`    — Enrich an existing scenario with threat intelligence
 
 ## Build Order (never skip phases)
 ### Lab Infrastructure (Phases 1-10)
 1. Proxmox host config → 2. ZFS pools → 3. Network bridges + firewall
 4. Packer templates → 5. Terraform modules (slot-aware) → 6. Ansible roles
 7. SCADA stack → 8. Scenario catalog → 9. Lab UI → 10. Docs
+
+### Intel-Grounded Scenario Build (run after Phase 8 baseline scenarios are built)
+Phase I-1: Source ingestion → INTEL_AGENT extracts all five layers
+Phase I-2: Intel brief generated → intel_briefs/<name>.yaml
+Phase I-3: ORCHESTRATOR routes brief layers to specialist agents
+Phase I-4: INFRA_AGENT builds topology per Layer 2/3 specs
+Phase I-5: SCADA_AGENT configures protocols per Layer 3 OT specs
+Phase I-6: Ansible stages IOC artifacts per Layer 4
+Phase I-7: Content generation produces dressing assets per Layer 5
+Phase I-8: SECURITY_AGENT validates ATT&CK coverage against brief
+Phase I-9: DOCS_AGENT produces scenario card with source citations
 
 ### Portal System (Phases 11-16 — run after Phase 3)
 11. PostgreSQL database + migrations → 12. Backend API (Express + auth + RBAC)
@@ -64,7 +84,10 @@
 - @skills/SCADA_SKILL.md, @skills/PACKER_ANSIBLE_SKILL.md
 - @skills/FRONTEND_SKILL.md, @skills/PORTAL_SKILL.md, @skills/BACKEND_SKILL.md
 - @docs/VERSION_MANIFEST.md, @CHANGELOG.md
-
+- @agents/INTEL_AGENT.md
+- @skills/INTEL_SKILL.md
+- @intel_briefs/              — generated intel briefs (committed to git)
+  
 ## 20-Slot Architecture
 - VM IDs: slot N uses IDs 200+(N-1)*10 through 200+(N-1)*10+9
 - VLANs: each slot gets isolated VLAN (101-120) on vmbr1/vmbr2/vmbr3

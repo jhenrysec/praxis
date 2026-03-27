@@ -1,7 +1,7 @@
 # Vulnerability Testing Lab
 
 **Operator**: <Company name to be determined> 
-**Platform**: Proxmox VE 8.x · Dell Precision 5820 · 64 GB RAM · 4 TB ZFS  
+**Platform**: Proxmox VE 9.x · Dell Precision 5820 · 64 GB RAM · 4 TB ZFS  
 **Automation**: Claude Code (Opus 4.6) · Terraform · Packer · Ansible  
 
 A professional, scenario-driven cybersecurity training environment with full ICS/SCADA
@@ -42,8 +42,8 @@ Proxmox installation and configuration walkthrough.
 | Proxmox VE | 8.3+ | Fully configured per setup guide |
 | Node.js | 22 LTS | On your management workstation |
 | Claude Code | 2.1.59+ | Requires Claude Max or API key |
-| Terraform | 1.9+ | On management workstation |
-| Packer | 1.11+ | On management workstation |
+| Terraform | 1.14+ | On management workstation |
+| Packer | 1.15+ | On management workstation |
 | Ansible Core | 2.17+ | On management workstation |
 | Git | Any | For cloning and version control |
 
@@ -52,7 +52,7 @@ Proxmox installation and configuration walkthrough.
 ```bash
 # Clone the repository
 git clone https://github.com/YOUR-USERNAME/vuln-lab.git
-cd higher-echelon-vuln-lab
+cd vuln-lab
 
 # Install Claude Code
 npm install -g @anthropic-ai/claude-code

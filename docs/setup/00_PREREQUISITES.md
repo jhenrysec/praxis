@@ -37,7 +37,7 @@ This is a separate machine from the Proxmox host.
 | Claude Code | ≥ 2.1.59 | `npm install -g @anthropic-ai/claude-code` | `claude --version` |
 | Terraform | ≥ 1.9.0 | [releases.hashicorp.com](https://releases.hashicorp.com/terraform/) | `terraform version` |
 | Packer | ≥ 1.11.0 | [releases.hashicorp.com](https://releases.hashicorp.com/packer/) | `packer version` |
-| Ansible Core | ≥ 2.17.0 | `pip3 install ansible-core==2.17.*` | `ansible --version` |
+| Ansible Core | ≥ 2.17.0 | `pip3 install ansible-core>=2.19` | `ansible --version` |
 | Python 3 | ≥ 3.11 | System package manager | `python3 --version` |
 | Git | Any recent | System package manager | `git --version` |
 | jq | Any recent | `apt install jq` | `jq --version` |

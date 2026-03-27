@@ -10,8 +10,8 @@
 | Component | Version | Source | Notes |
 |---|---|---|---|
 | Proxmox VE | 9.1.x | proxmox.com/downloads | Verify: `pveversion` |
-| Debian base | 12 (Bookworm) | Included in Proxmox ISO | |
-| ZFS | 2.2.x | Included in Proxmox | Verify: `zfs version` |
+| Debian base | 13 (Trixie) | Included in Proxmox ISO | |
+| ZFS | 2.3.x | Included in Proxmox | Verify: `zfs version` |
 
 ---
 
@@ -19,11 +19,11 @@
 
 | Tool | Version | Install source | Pin command |
 |---|---|---|---|
-| Terraform | 1.9.x | releases.hashicorp.com | `terraform version` |
-| bpg/proxmox provider | 0.66.x | registry.terraform.io | Lock: `.terraform.lock.hcl` |
-| Packer | 1.11.x | releases.hashicorp.com | `packer version` |
+| Terraform | 1.14.x | releases.hashicorp.com | `terraform version` |
+| bpg/proxmox provider | 0.99.x | registry.terraform.io | Lock: `.terraform.lock.hcl` |
+| Packer | 1.15.x | releases.hashicorp.com | `packer version` |
 | Packer proxmox plugin | 1.1.x | registry.packer.io | Lock: `.packer_cache` |
-| Ansible Core | 2.17.x | pip install | `ansible --version` |
+| Ansible Core | 2.20.x | pip install | `ansible --version` |
 | ansible.windows | 2.4.x | ansible-galaxy | `ansible-galaxy collection list` |
 | microsoft.ad | 1.7.x | ansible-galaxy | `ansible-galaxy collection list` |
 | pywinrm | 0.4.x | pip | `pip show pywinrm` |

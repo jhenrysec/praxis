@@ -72,7 +72,7 @@ Types: ADD | CHANGE | FIX | REMOVE | SECURITY | DOCS
 ## [2025-06-01] — INFRA_AGENT — ADD
 - Added Terraform module `modules/vm_clone` with linked-clone support
 - Added `proxmox_virtual_machine` resource with cloud-init and qemu-guest-agent
-- Pinned bpg/proxmox provider to 0.66.3
+- Pinned bpg/proxmox provider to 0.99.0
 
 ## [2025-06-01] — SECURITY_AGENT — SECURITY
 - Enabled Proxmox datacenter firewall; default INPUT/FORWARD policy: DROP
@@ -162,7 +162,7 @@ Anything the instructor should know before running this scenario in class.
 ```markdown
 # Vulnerability Testing Lab
 
-A professional, scenario-driven cybersecurity training environment built on Proxmox VE 8.x.
+A professional, scenario-driven cybersecurity training environment built on Proxmox VE 9.x.
 Covers IT/enterprise attacks, ICS/SCADA exploitation, and full-chain IT→OT scenarios.
 
 ## Quick Start

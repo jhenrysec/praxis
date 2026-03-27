@@ -96,7 +96,7 @@
     "PORTAL_URL": "http://172.16.0.10:3000",
     "PORTAL_API": "http://172.16.0.10:4000",
     "MAX_STUDENT_SLOTS": "20",
-    "TERRAFORM_MIN_VERSION": "1.9.0",
-    "PACKER_MIN_VERSION": "1.11.0"
+    "TERRAFORM_MIN_VERSION": "1.14.0",
+    "PACKER_MIN_VERSION": "1.15.0"
   }
 }

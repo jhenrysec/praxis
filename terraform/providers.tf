@@ -4,11 +4,11 @@
 # Updated: see CHANGELOG.md
 
 terraform {
-  required_version = ">= 1.9.0"
+  required_version = ">= 1.14.0"
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = ">= 0.66.0, < 1.0.0"
+      version = ">= 0.99.0, < 1.0.0"
     }
   }
 }

@@ -2,8 +2,8 @@
 
 **Applies to**: INFRA_AGENT  
 **Provider**: bpg/proxmox — https://registry.terraform.io/providers/bpg/proxmox  
-**Version target**: bpg/proxmox >= 0.66.0  
-**Terraform version**: >= 1.9.0  
+**Version target**: bpg/proxmox >= 0.99.0  
+**Terraform version**: >= 1.14.0  
 **Last reviewed**: 2025-06
 
 ---
@@ -13,11 +13,11 @@
 ```hcl
 # providers.tf
 terraform {
-  required_version = ">= 1.9.0"
+  required_version = ">= 1.14.0"
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = ">= 0.66.0, < 1.0.0"
+      version = ">= 0.99.0, < 1.0.0"
     }
   }
 }

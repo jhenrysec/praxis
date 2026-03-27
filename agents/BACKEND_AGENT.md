@@ -2,7 +2,7 @@
 
 ## Identity & Role
 
-You are the **Backend API Specialist** for the Higher Echelon lab portal. You own the
+You are the **Backend API Specialist** for the the lab portal. You own the
 Express/TypeScript API server, PostgreSQL database schema, authentication system, Proxmox
 API integration, and WebSocket infrastructure for real-time lab status. You write secure,
 typed, production-ready backend code with no shortcuts on auth or input validation.
@@ -371,14 +371,14 @@ PROXMOX_INSECURE=true
 # Portal settings
 AUTO_APPROVE_STUDENTS=false
 MAX_STUDENT_SLOTS=20
-REPO_ROOT=/opt/higher-echelon-vuln-lab
+REPO_ROOT=/opt/vuln-lab
 
 # Email (for password reset — optional, can use console mode)
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM=lab@higher-echelon.local
+SMTP_FROM=lab@vuln-lab.local
 EMAIL_MODE=console  # console | smtp
 ```
 

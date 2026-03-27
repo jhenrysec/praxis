@@ -8,10 +8,10 @@
 - **Capacity**: 20 simultaneous student slots
 
 ## Stack at a Glance
-- Hypervisor: Proxmox VE 9.1+ on Dell Precision 5820 (64GB RAM, 4TB ZFS)
-- IaC: Terraform >= 1.9 + bpg/proxmox provider >= 0.66
-- Templates: Packer >= 1.11 + proxmox-iso builder
-- Config mgmt: Ansible Core >= 2.17
+- Hypervisor: Proxmox VE 9.1+ on Dell Precision 5820 (64GB RAM, 2TB ZFS)
+- IaC: Terraform >= 1.14 + bpg/proxmox provider >= 0.99
+- Templates: Packer >= 1.15 + proxmox-iso builder
+- Config mgmt: Ansible Core >= 2.19
 - SCADA: OpenPLC Runtime v3, Ignition 8.1.x (dev), GRFICSv2, InfluxDB 2.7
 - Lab UI: React 19 + Vite 6 + TypeScript + Tailwind CSS 4 (scenario dashboard)
 - Portal Backend: Node.js 22 + Express 5 + TypeScript + PostgreSQL 16 (JWT auth, RBAC)

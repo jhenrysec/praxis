@@ -1,4 +1,4 @@
-# Skill: Proxmox VE 8.x
+# Skill: Proxmox VE 9.x
 
 **Applies to**: INFRA_AGENT  
 **Version target**: Proxmox VE 9.1+ (Debian 13 Trixie base)  

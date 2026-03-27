@@ -10,7 +10,7 @@ proxmox_host: "172.16.0.10"
 # Lab identity
 lab_domain: "lab.local"
 lab_netbios: "LAB"
-lab_org: "Higher Echelon"
+lab_org: "Cyber Range"
 
 # SSH key injected via cloud-init — Ansible uses the same key
 ansible_ssh_private_key_file: "~/.ssh/lab_key"

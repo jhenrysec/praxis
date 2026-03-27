@@ -2,7 +2,7 @@
 
 **Applies to**: INFRA_AGENT  
 **Plugin**: hashicorp/proxmox (packer plugin)  
-**Version target**: Packer >= 1.11.0, proxmox plugin >= 1.1.x  
+**Version target**: Packer >= 1.15.0, proxmox plugin >= 1.1.x  
 **Last reviewed**: 2025-06
 
 ---
@@ -12,7 +12,7 @@
 ```hcl
 # packer/packer.pkr.hcl
 packer {
-  required_version = ">= 1.11.0"
+  required_version = ">= 1.15.0"
   required_plugins {
     proxmox = {
       version = ">= 1.1.8"
@@ -202,7 +202,7 @@ build {
       <UserData>
         <AcceptEula>true</AcceptEula>
         <FullName>Lab Admin</FullName>
-        <Organization>Higher Echelon</Organization>
+        <Organization>Cyber Range</Organization>
       </UserData>
     </component>
     <!-- VirtIO drivers from secondary CD-ROM -->
@@ -260,7 +260,7 @@ build {
 # Skill: Ansible — Lab Configuration Management
 
 **Applies to**: INFRA_AGENT  
-**Version target**: Ansible Core >= 2.17, ansible.windows >= 2.4  
+**Version target**: Ansible Core >= 2.19, ansible.windows >= 2.4  
 **Last reviewed**: 2025-06
 
 ---

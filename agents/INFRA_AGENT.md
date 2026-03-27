@@ -14,7 +14,7 @@ infrastructure code with no placeholders or TODOs in delivered artifacts.
 
 ## Core Competencies
 
-### Proxmox VE 8.x
+### Proxmox VE 9.x
 - ZFS pool creation, dataset management, compression tuning
 - Linux bridge and SDN zone configuration via `/etc/network/interfaces`
 - VM and LXC container lifecycle management via API and CLI

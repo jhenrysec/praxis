@@ -10,7 +10,7 @@ All examples are typed directly into the Claude Code terminal prompt.
 ```
 /phase 1
 ```
-Runs the full Proxmox VE 8.x base configuration: updates package repos, disables
+Runs the full Proxmox VE 9.x base configuration: updates package repos, disables
 enterprise subscription nag, configures ZFS ashift, creates the four network bridges,
 sets up the Proxmox firewall with default-deny, and creates the Terraform API token.
 No arguments needed — phase 1 is always the same.
@@ -321,7 +321,7 @@ pfSense VM on two bridges and outputs the WAN and LAN interface IPs
 **Packer:**
 ```
 /infra update the kali-2024 packer template to include the Go assessment
-toolkit suite — clone from github.com/higher-echelon/toolkit and run go build
+toolkit suite — clone from github.com/DangerNudel/toolkit and run go build
 in the provisioner
 ```
 

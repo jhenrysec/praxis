@@ -8,7 +8,7 @@
 
 ## Phase Completion
 
-- [ ] Phase 1: Proxmox VE 8.x base configuration
+- [ ] Phase 1: Proxmox VE 9.x base configuration
 - [ ] Phase 2: ZFS storage pool and dataset setup
 - [ ] Phase 3: Network bridges (vmbr0–3) + firewall default-deny
 - [ ] Phase 4: Packer VM template library (8 templates)

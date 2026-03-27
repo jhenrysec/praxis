@@ -6,7 +6,7 @@ Phase requested: $ARGUMENTS
 (Pass a number 1-10 or a phase name like "proxmox" or "packer-templates")
 
 ## Phase Map
-- 1 or "proxmox" → /infra "Configure Proxmox VE 8.x base: package repos, ZFS pool, four network bridges, API token for Terraform"
+- 1 or "proxmox" → /infra "Configure Proxmox VE 9.x base: package repos, ZFS pool, four network bridges, API token for Terraform"
 - 2 or "storage" → /infra "Configure ZFS datasets: labdata/templates, labdata/scenarios, labdata/backups with lz4 compression"
 - 3 or "network" → /infra "Configure SDN zones and bridges vmbr1-3" then /security "Review firewall baseline and default-deny policy"
 - 4 or "packer" → /infra "Build all Packer templates: Kali 2024, Windows Server 2022, Ubuntu 22.04, Debian 12, OpenPLC, Ignition dev"

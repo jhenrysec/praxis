@@ -88,13 +88,13 @@
 
   "env": {
     "INFRA_CONTEXT": "proxmox-lab",
-    "LAB_MGMT_NET": "172.16.0.0/24",
+    "LAB_MGMT_NET": "192.168.1.0/24",
     "LAB_RED_NET": "10.10.x.0/24",
     "LAB_BLUE_NET": "10.10.x.0/24",
     "LAB_OT_NET": "192.168.x.0/24",
-    "PROXMOX_HOST": "172.16.0.10",
-    "PORTAL_URL": "http://172.16.0.10:3000",
-    "PORTAL_API": "http://172.16.0.10:4000",
+    "PROXMOX_HOST": "192.168.1.50",
+    "PORTAL_URL": "http://192.168.1.50:3000",
+    "PORTAL_API": "http://192.168.1.50:4000",
     "MAX_STUDENT_SLOTS": "20",
     "TERRAFORM_MIN_VERSION": "1.14.0",
     "PACKER_MIN_VERSION": "1.15.0"

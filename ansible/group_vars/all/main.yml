@@ -1,11 +1,11 @@
 # ansible/group_vars/all/main.yml
 ---
-lab_mgmt_net: "172.16.0.0/24"
+lab_mgmt_net: "192.168.1.0/24"
 lab_red_net: "10.10.1.0/24"
 lab_blue_net: "10.10.2.0/24"
 lab_ot_net: "192.168.100.0/24"
 
-proxmox_host: "172.16.0.10"
+proxmox_host: "192.168.1.50"
 
 # Lab identity
 lab_domain: "lab.local"

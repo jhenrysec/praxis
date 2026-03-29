@@ -17,7 +17,7 @@
 - Portal Backend: Node.js 22 + Express 5 + TypeScript + PostgreSQL 16 (JWT auth, RBAC)
 - Portal UI: React 19 + Vite 6 + TypeScript + Tailwind CSS 4 (student/instructor portal)
 - Console: noVNC proxied through portal-backend WebSocket
-- Networks: vmbr0=mgmt(172.16.0.0/24) vmbr1=red(10.10.x.0/24) vmbr2=blue(10.10.x.0/24) vmbr3=ot(192.168.x.0/24)
+- Networks: vmbr0=mgmt(192.168.1.0/24) vmbr1=red(10.10.x.0/24) vmbr2=blue(10.10.x.0/24) vmbr3=ot(192.168.x.0/24)
   Note: x = slot number (1-20) for per-student VLAN isolation
 - Intel Briefs: YAML structured briefs in intel_briefs/ — ground truth for scenario builds
 

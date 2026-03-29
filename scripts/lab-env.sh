@@ -8,8 +8,8 @@
 set -a  # auto-export all variables
 
 # ── Proxmox ──────────────────────────────────────────────────────────────────
-export PROXMOX_HOST="172.16.0.10"
-export PROXMOX_VE_ENDPOINT="https://172.16.0.10:8006/"
+export PROXMOX_HOST="192.168.1.50"
+export PROXMOX_VE_ENDPOINT="https://192.168.1.50:8006/"
 export PROXMOX_VE_INSECURE="true"
 # Set these — never hardcode:
 # export PROXMOX_VE_API_TOKEN_ID="terraform@pve!terraform"
@@ -30,7 +30,7 @@ export ANSIBLE_PRIVATE_KEY_FILE="${HOME}/.ssh/lab_key"
 export ANSIBLE_REMOTE_USER="ansible"
 
 # ── Lab network constants (safe to commit) ───────────────────────────────────
-export LAB_MGMT_NET="172.16.0.0/24"
+export LAB_MGMT_NET="192.168.1.0/24"
 export LAB_RED_NET="10.10.1.0/24"
 export LAB_BLUE_NET="10.10.2.0/24"
 export LAB_OT_NET="192.168.100.0/24"

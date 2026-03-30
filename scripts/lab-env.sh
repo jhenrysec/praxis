@@ -12,15 +12,15 @@ export PROXMOX_HOST="192.168.1.50"
 export PROXMOX_VE_ENDPOINT="https://192.168.1.50:8006/"
 export PROXMOX_VE_INSECURE="true"
 # Set these — never hardcode:
-# export PROXMOX_VE_API_TOKEN_ID="terraform@pve!terraform"
-# export PROXMOX_VE_API_TOKEN_SECRET="217d493f-e726-47e1-b7e5-82b07a408e99"
+export PROXMOX_VE_API_TOKEN_ID="terraform@pve!terraform"
+export PROXMOX_VE_API_TOKEN_SECRET="217d493f-e726-47e1-b7e5-82b07a408e99"
 
 # ── Packer ───────────────────────────────────────────────────────────────────
-# export PKR_VAR_proxmox_token="${PROXMOX_VE_API_TOKEN_SECRET}"
-# export PKR_VAR_ssh_public_key="$(cat ~/.ssh/lab_key.pub)"
+export PKR_VAR_proxmox_token="${PROXMOX_VE_API_TOKEN_SECRET}"
+export PKR_VAR_ssh_public_key="$(cat ~/.ssh/lab_key.pub)"
 
 # ── Terraform ────────────────────────────────────────────────────────────────
-# export TF_VAR_proxmox_api_token="${PROXMOX_VE_API_TOKEN_ID}=${PROXMOX_VE_API_TOKEN_SECRET}"
+export TF_VAR_proxmox_api_token="${PROXMOX_VE_API_TOKEN_ID}=${PROXMOX_VE_API_TOKEN_SECRET}"
 export TF_CLI_ARGS_plan="-compact-warnings"
 export TF_CLI_ARGS_apply="-compact-warnings"
 

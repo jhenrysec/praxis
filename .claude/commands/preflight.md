@@ -36,7 +36,7 @@ is available. This prevents build failures 30 minutes into a Terraform apply.
 3. **Check ISO availability for missing templates**
    If any templates need building, run the ISO check:
    ```bash
-   ./scripts/check-isos.sh --template <template_name>
+   ./scripts/iso-manage.sh --template <template_name>
    ```
    
    If ISOs are missing:

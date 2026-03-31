@@ -1,0 +1,202 @@
+# scripts/iso-sources.yaml
+# Knowledge base of ISO download URL patterns for known distributions.
+# This is NOT a list of required ISOs — it's a lookup table the resolver
+# uses when a scenario needs an OS that isn't already on Proxmox.
+#
+# Variables in url_pattern:
+#   {version}       — full version string (e.g., 2026.1, 24.04.4, 12.9.0)
+#   {major}         — major version only (e.g., 2026, 24, 12)
+#   {minor}         — minor version (e.g., 1, 04, 9)
+#   {patch}         — patch version (e.g., 4, 0)
+#   {arch}          — architecture (default: amd64)
+#
+# auto_download: true means the script can fetch without human intervention
+# auto_download: false means the user must download manually (licensing, forms)
+
+sources:
+
+  # ── Linux distributions ────────────────────────────────────────────────────
+
+  kali:
+    display_name: "Kali Linux"
+    url_pattern: "https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-amd64.iso"
+    checksum_url: "https://cdimage.kali.org/kali-{version}/SHA256SUMS"
+    filename_pattern: "kali-linux-{version}-installer-amd64.iso"
+    auto_download: true
+    notes: "Free download. Releases at kali.org/get-kali/"
+
+  ubuntu-server:
+    display_name: "Ubuntu Server"
+    url_pattern: "https://releases.ubuntu.com/{version}/ubuntu-{version}-live-server-amd64.iso"
+    checksum_url: "https://releases.ubuntu.com/{version}/SHA256SUMS"
+    filename_pattern: "ubuntu-{version}-live-server-amd64.iso"
+    auto_download: true
+    notes: "Free download. Use live-server ISO for cloud-init support."
+
+  ubuntu-desktop:
+    display_name: "Ubuntu Desktop"
+    url_pattern: "https://releases.ubuntu.com/{version}/ubuntu-{version}-desktop-amd64.iso"
+    checksum_url: "https://releases.ubuntu.com/{version}/SHA256SUMS"
+    filename_pattern: "ubuntu-{version}-desktop-amd64.iso"
+    auto_download: true
+    notes: "Free download. Desktop variant for workstation scenarios."
+
+  debian:
+    display_name: "Debian"
+    url_pattern: "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-{version}-amd64-netinst.iso"
+    checksum_url: "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS"
+    filename_pattern: "debian-{version}-amd64-netinst.iso"
+    auto_download: true
+    notes: "Free download. Netinst is smallest — pulls packages during install."
+
+  rocky:
+    display_name: "Rocky Linux"
+    url_pattern: "https://download.rockylinux.org/pub/rocky/{major}/isos/x86_64/Rocky-{version}-x86_64-minimal.iso"
+    checksum_url: "https://download.rockylinux.org/pub/rocky/{major}/isos/x86_64/CHECKSUM"
+    filename_pattern: "Rocky-{version}-x86_64-minimal.iso"
+    auto_download: true
+    notes: "Free RHEL-compatible. Use for scenarios targeting CentOS/RHEL environments."
+
+  alma:
+    display_name: "AlmaLinux"
+    url_pattern: "https://repo.almalinux.org/almalinux/{major}/isos/x86_64/AlmaLinux-{version}-x86_64-minimal.iso"
+    checksum_url: "https://repo.almalinux.org/almalinux/{major}/isos/x86_64/CHECKSUM"
+    filename_pattern: "AlmaLinux-{version}-x86_64-minimal.iso"
+    auto_download: true
+    notes: "Free RHEL-compatible alternative to Rocky."
+
+  fedora-server:
+    display_name: "Fedora Server"
+    url_pattern: "https://download.fedoraproject.org/pub/fedora/linux/releases/{major}/Server/x86_64/iso/Fedora-Server-dvd-x86_64-{version}.iso"
+    filename_pattern: "Fedora-Server-dvd-x86_64-{version}.iso"
+    auto_download: true
+    notes: "Free download."
+
+  alpine:
+    display_name: "Alpine Linux"
+    url_pattern: "https://dl-cdn.alpinelinux.org/alpine/v{major}.{minor}/releases/x86_64/alpine-virt-{version}-x86_64.iso"
+    checksum_url: "https://dl-cdn.alpinelinux.org/alpine/v{major}.{minor}/releases/x86_64/alpine-virt-{version}-x86_64.iso.sha256"
+    filename_pattern: "alpine-virt-{version}-x86_64.iso"
+    auto_download: true
+    notes: "Tiny (~60MB). Good for lightweight containers or minimal VMs."
+
+  archlinux:
+    display_name: "Arch Linux"
+    url_pattern: "https://geo.mirror.pkgbuild.com/iso/{version}/archlinux-{version}-x86_64.iso"
+    checksum_url: "https://geo.mirror.pkgbuild.com/iso/{version}/sha256sums.txt"
+    filename_pattern: "archlinux-{version}-x86_64.iso"
+    auto_download: true
+    notes: "Rolling release. Version is date-based (YYYY.MM.DD)."
+
+  # ── BSD / Firewall / Router ────────────────────────────────────────────────
+
+  freebsd:
+    display_name: "FreeBSD"
+    url_pattern: "https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/{version}/FreeBSD-{version}-RELEASE-amd64-disc1.iso"
+    checksum_url: "https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/{version}/CHECKSUM.SHA256-FreeBSD-{version}-RELEASE-amd64"
+    filename_pattern: "FreeBSD-{version}-RELEASE-amd64-disc1.iso"
+    auto_download: true
+    notes: "Free download."
+
+  opnsense:
+    display_name: "OPNsense"
+    url_pattern: "https://mirror.dns-root.de/opnsense/releases/{version}/OPNsense-{version}-dvd-amd64.iso.bz2"
+    filename_pattern: "OPNsense-{version}-dvd-amd64.iso.bz2"
+    auto_download: true
+    post_download: "bunzip2"
+    notes: "Free firewall/router. Download is bz2 compressed — decompress after download."
+
+  pfsense:
+    display_name: "pfSense CE"
+    url_pattern: ""
+    filename_pattern: "pfSense-CE-{version}-RELEASE-amd64.iso.gz"
+    auto_download: false
+    notes: >
+      pfSense CE requires account creation at pfsense.org/download.
+      Download manually, decompress with gunzip, then upload.
+      Alternative: use OPNsense (fork, fully auto-downloadable).
+
+  vyos:
+    display_name: "VyOS"
+    url_pattern: ""
+    filename_pattern: "vyos-{version}-amd64.iso"
+    auto_download: false
+    notes: >
+      VyOS LTS requires a subscription. Rolling releases are free but
+      must be built from source or use nightly builds:
+      https://github.com/vyos/vyos-rolling-nightly-builds/releases
+      For lab use, consider OPNsense or a Linux box with iptables/nftables instead.
+
+  openwrt:
+    display_name: "OpenWrt"
+    url_pattern: "https://downloads.openwrt.org/releases/{version}/targets/x86/64/openwrt-{version}-x86-64-generic-ext4-combined.img.gz"
+    filename_pattern: "openwrt-{version}-x86-64-generic-ext4-combined.img.gz"
+    auto_download: true
+    post_download: "gunzip"
+    notes: "Disk image, not ISO. Import as raw disk to Proxmox VM."
+
+  # ── Specialty / ICS / SCADA ────────────────────────────────────────────────
+
+  securityonion:
+    display_name: "Security Onion"
+    url_pattern: "https://github.com/Security-Onion-Solutions/securityonion/releases/download/{version}/securityonion-{version}.iso"
+    filename_pattern: "securityonion-{version}.iso"
+    auto_download: true
+    notes: "Free IDS/NSM platform. Large ISO (~8GB)."
+
+  metasploitable3:
+    display_name: "Metasploitable 3"
+    url_pattern: ""
+    filename_pattern: ""
+    auto_download: false
+    notes: >
+      Metasploitable 3 is built from source using Vagrant + Packer.
+      See: github.com/rapid7/metasploitable3
+      Not distributed as an ISO — build with the provided Packer templates.
+
+  # ── Windows (always manual) ────────────────────────────────────────────────
+
+  windows-server-2022:
+    display_name: "Windows Server 2022 Evaluation"
+    url_pattern: ""
+    filename_pattern: "SERVER_EVAL_x64FRE_en-us.iso"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-server-2022
+      Requires form submission. 180-day evaluation license.
+
+  windows-server-2019:
+    display_name: "Windows Server 2019 Evaluation"
+    url_pattern: ""
+    filename_pattern: "17763.3650.221105-1748.rs5_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-server-2019
+      Use for scenarios requiring older Windows Server versions.
+
+  windows-10:
+    display_name: "Windows 10 Enterprise Evaluation"
+    url_pattern: ""
+    filename_pattern: "Win10_22H2_EnglishInternational_x64v1.iso"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-10-enterprise
+      90-day evaluation license.
+
+  windows-11:
+    display_name: "Windows 11 Enterprise Evaluation"
+    url_pattern: ""
+    filename_pattern: "Win11_23H2_EnglishInternational_x64v2.iso"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-11-enterprise
+      TPM 2.0 required — enable in Proxmox VM settings.
+
+  # ── Drivers / Support ISOs ─────────────────────────────────────────────────
+
+  virtio-win:
+    display_name: "VirtIO Windows Drivers"
+    url_pattern: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+    filename_pattern: "virtio-win.iso"
+    auto_download: true
+    notes: "Required for all Windows Packer builds. Provides VirtIO SCSI, network, and balloon drivers."

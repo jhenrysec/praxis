@@ -10,16 +10,18 @@ Task: $ARGUMENTS
 ## Command Syntax
 
 ```
-/intel-scenario --source <url_or_paste> [options]
+/intel-scenario --source <url_or_paste_or_file> [options]
 
 Options:
-  --source      URL or "paste" (operator will provide content)   [required]
-  --fidelity    strict | balanced | loose                        [default: balanced]
-  --zones       comma-separated list of vmbr zones to use        [default: auto]
-  --difficulty  Beginner | Intermediate | Advanced | Expert      [default: auto]
-  --sector      override sector detection                        [default: auto-detect]
-  --team        solo | pair | team                               [default: solo]
+  --source      URL, "paste", or file path to a PDF/document   [required]
+  --fidelity    strict | balanced | loose                       [default: balanced]
+  --zones       comma-separated list of vmbr zones to use       [default: auto]
+  --difficulty  Beginner | Intermediate | Advanced | Expert     [default: auto]
+  --sector      override sector detection                       [default: auto-detect]
+  --team        solo | pair | team                              [default: solo]
   --focus       red_team | blue_team | forensics | hunt | combined [default: combined]
+  --skip-dedup  skip deduplication check                        [default: false]
+  --skip-preflight skip infrastructure verification             [default: false]
 ```
 
 ## Examples
@@ -28,6 +30,16 @@ Options:
 # Build from CISA advisory URL
 /intel-scenario --source https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-049a \
                 --fidelity balanced
+
+# Build from a locally uploaded PDF file
+/intel-scenario --source /mnt/user-data/uploads/mandiant_apt42_report.pdf \
+                --fidelity strict \
+                --focus forensics
+
+# Build from a PDF on the management workstation
+/intel-scenario --source ~/reports/dragos_pipedream_2024.pdf \
+                --sector energy \
+                --difficulty Advanced
 
 # Build from MITRE ATT&CK group page with strict fidelity
 /intel-scenario --source https://attack.mitre.org/groups/G0114/ \
@@ -55,9 +67,17 @@ Options:
 
 2. **Ingest source**
    - If `--source` is a URL: use `web_fetch` to retrieve the document.
-     For PDFs, follow pdf-reading/SKILL.md extraction approach.
+     For PDFs at URLs, follow pdf-reading/SKILL.md extraction approach.
    - If `--source paste`: acknowledge and wait for operator to paste content.
-   - If source requires authentication: prompt operator to paste content.
+   - If `--source` is a file path (ends in .pdf, .doc, .docx, .txt, or is a path):
+     a. Verify the file exists at the specified path
+     b. For PDFs: load @skills/pdf-reading/SKILL.md, extract content using the
+        PDF reading pipeline (text extraction → page rasterization for diagrams →
+        table extraction for IOC tables)
+     c. For .txt/.md: read file content directly
+     d. For .doc/.docx: load @skills/file-reading/SKILL.md, extract text content
+   - If source requires authentication: prompt operator to paste content or
+     provide a local file path.
 
 3. **Detect scope** (before full extraction)
    Quickly scan the source to determine:
@@ -104,19 +124,55 @@ Options:
    Use the complete schema from INTEL_SKILL.md. Every required field must
    be populated. Optional fields populated where source supports them.
 
-8. **Generate orchestrator handoff**
-   Produce the structured handoff block per INTEL_AGENT.md handoff protocol.
-   This is what triggers the downstream build pipeline.
+8. **Deduplication check** (unless --skip-dedup)
+   Run `/dedup-check intel_briefs/<filename>.yaml`
+   
+   - If recommendation is SKIP: report to instructor, suggest `/intel-enrich` instead.
+     Do NOT proceed to build unless instructor explicitly overrides.
+   - If recommendation is MERGE: report the merge opportunity and ask for confirmation.
+   - If recommendation is BUILD: proceed to step 9.
 
-9. **Trigger downstream agents**
-   After handoff block is printed, trigger:
-   ```
-   /orchestrate build scenario from intel_briefs/<filename>.yaml
-   ```
-   The orchestrator handles routing Layer 2/3 to INFRA_AGENT,
-   Layer 3 OT details to SCADA_AGENT, gaps to DOCS_AGENT.
+9. **Infrastructure preflight** (unless --skip-preflight)
+   Run `/preflight intel_briefs/<filename>.yaml`
+   
+   - If READY: proceed to build.
+   - If BLOCKED on ISOs:
+     - Auto-downloadable ISOs: offer to run `./scripts/check-isos.sh --download --upload`
+     - Manual ISOs: print download instructions and STOP until resolved.
+   - If BLOCKED on templates:
+     - Packer file exists: offer to build the template first, then continue.
+     - Packer file missing: STOP — INFRA_AGENT must create the template.
 
-10. **Trigger docs**
+10. **Generate orchestrator handoff**
+    Produce the structured handoff block per INTEL_AGENT.md handoff protocol.
+    This is what triggers the downstream build pipeline.
+    
+    Include in the handoff:
+    - Dedup analysis results (what's new vs. existing)
+    - Preflight status (what templates needed building)
+    - ISO status (all available or any downloaded during preflight)
+
+11. **Trigger downstream agents**
+    After handoff block is printed, trigger:
+    ```
+    /orchestrate build scenario from intel_briefs/<filename>.yaml
+    ```
+    The orchestrator handles routing Layer 2/3 to INFRA_AGENT,
+    Layer 3 OT details to SCADA_AGENT, gaps to DOCS_AGENT.
+
+12. **Generate teaching materials**
+    After scenario infrastructure is built:
+    ```
+    /curriculum generate teaching materials for <scenario_name> \
+      from intel_briefs/<filename>.yaml
+    ```
+
+13. **Generate scenario manifest**
+    Write `scenarios/<scenario_name>/MANIFEST.yaml` with all build artifacts,
+    templates used, ISOs required, and Ansible roles — enabling future
+    redeployment without re-running the full pipeline.
+
+14. **Trigger docs**
     After orchestrator confirms build:
     ```
     /docs INTEL_AGENT task complete: generated intel brief <filename>
@@ -133,7 +189,8 @@ Options:
 INTEL_AGENT — Source Analysis
 ═══════════════════════════════════════════════════════════════
 Source: [document title]
-Type: [mitre_attack|cisa_advisory|ir_report|whitepaper]
+Type: [mitre_attack|cisa_advisory|ir_report|whitepaper|file]
+Format: [url|paste|pdf|document]
 Fidelity: [strict|balanced|loose]
 
 Detected sector: [sector/subsector]
@@ -162,6 +219,17 @@ ATTACK CHAIN ([n] phases):
   2. [tactic] — [T####] [technique name]
   ...
 
+DEDUP CHECK:
+  [n] existing scenarios analyzed
+  Technique overlap: [highest overlap %] with [scenario_name]
+  Recommendation: BUILD / SKIP / MERGE
+
+PREFLIGHT CHECK:
+  Templates: [n] available, [n] need building
+  ISOs: [n] available, [n] downloaded, [n] manual
+  Resources: [sufficient/insufficient]
+  Verdict: READY / BLOCKED
+
 TOPOLOGY REQUIREMENTS → INFRA_AGENT:
   • [bullet list of specific configs]
 
@@ -174,6 +242,9 @@ ARTIFACT STAGING ([n] artifacts) → Ansible:
 
 DRESSING ASSETS ([n] files) → Content generation:
   • [DRESS-###] [host_role]/[filename]: [one-line brief]
+
+TEACHING MATERIALS → CURRICULUM_AGENT:
+  • Lesson plan, slides, incident report template, detection exercise
 
 SUBSTITUTION GAPS → DOCS_AGENT:
   • [source product]: [fidelity loss description]

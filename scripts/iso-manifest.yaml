@@ -1,0 +1,95 @@
+# scripts/iso-manifest.yaml
+# Master manifest of all ISOs required for Packer template builds
+# Referenced by: scripts/check-isos.sh, /phase 4, INFRA_AGENT
+# Updated: see CHANGELOG.md
+#
+# Each entry specifies:
+#   - template: which Packer template needs this ISO
+#   - filename: expected filename on Proxmox storage
+#   - storage: Proxmox storage pool for ISOs
+#   - url: official download URL (evaluation/free editions)
+#   - sha256_url: URL to fetch current checksum (if available)
+#   - sha256: known-good checksum (update when ISOs change)
+#   - size_gb: approximate size for download progress
+#   - notes: licensing or download constraints
+
+isos:
+  - id: proxmox-ve
+    template: "host-install"
+    filename: "proxmox-ve_9.1-1.iso"
+    storage: "local"
+    url: "https://enterprise.proxmox.com/iso/proxmox-ve_9.1-1.iso"
+    sha256: ""
+    size_gb: 1.1
+    notes: "Host OS — download manually from proxmox.com/downloads"
+    auto_download: false
+
+  - id: kali-2024
+    template: "tpl-kali-2024"
+    filename: "kali-linux-2024.4-installer-amd64.iso"
+    storage: "local"
+    url: "https://cdimage.kali.org/kali-2024.4/kali-linux-2024.4-installer-amd64.iso"
+    sha256_url: "https://cdimage.kali.org/kali-2024.4/SHA256SUMS"
+    sha256: ""
+    size_gb: 4.1
+    notes: "Free download — no auth required"
+    auto_download: true
+
+  - id: win-server-2022
+    template: "tpl-win-server-2022"
+    filename: "SERVER_EVAL_x64FRE_en-us.iso"
+    storage: "local"
+    url: ""
+    sha256: ""
+    size_gb: 5.4
+    notes: >
+      Microsoft evaluation ISO — requires manual download from
+      microsoft.com/en-us/evalcenter/evaluate-windows-server-2022.
+      Cannot be automated (requires form submission).
+      Download and upload to Proxmox: pvesm upload local <file>
+    auto_download: false
+
+  - id: win10-22h2
+    template: "tpl-win10-workstation"
+    filename: "Win10_22H2_EnglishInternational_x64v1.iso"
+    storage: "local"
+    url: ""
+    sha256: ""
+    size_gb: 5.8
+    notes: >
+      Microsoft evaluation ISO — requires manual download from
+      microsoft.com/en-us/evalcenter/evaluate-windows-10-enterprise.
+      Cannot be automated.
+    auto_download: false
+
+  - id: ubuntu-2404
+    template: "tpl-ubuntu-2404"
+    filename: "ubuntu-24.04.4-live-server-amd64.iso"
+    storage: "local"
+    url: "https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-live-server-amd64.iso"
+    sha256_url: "https://releases.ubuntu.com/24.04.4/SHA256SUMS"
+    sha256: ""
+    size_gb: 2.6
+    notes: "Free download — no auth required"
+    auto_download: true
+
+  - id: debian-12
+    template: "tpl-debian-12"
+    filename: "debian-12.9.0-amd64-netinst.iso"
+    storage: "local"
+    url: "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-12.9.0-amd64-netinst.iso"
+    sha256_url: "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS"
+    sha256: ""
+    size_gb: 0.4
+    notes: "Free download — no auth required"
+    auto_download: true
+
+  - id: virtio-win
+    template: "all-windows"
+    filename: "virtio-win.iso"
+    storage: "local"
+    url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+    sha256: ""
+    size_gb: 0.5
+    notes: "VirtIO drivers for Windows Packer builds — required for all Windows templates"
+    auto_download: true

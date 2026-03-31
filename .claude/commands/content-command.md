@@ -20,11 +20,11 @@ Task: $ARGUMENTS
 8. **Trigger docs**: After completion: /docs "CONTENT task complete: [asset IDs generated] for scenario [name]"
 
 ## Safety Non-Negotiables
-- 🔒 SAFETY: No real names of living people — fictional names only
-- 🔒 SAFETY: No real classified markings — use INTERNAL/DRAFT/CONFIDENTIAL only
-- 🔒 SAFETY: No functional exploit code in simulated artifacts — behavioral simulation only
-- 🔒 SAFETY: No copyrighted content reproduction — original content matching the style
-- 🔒 SAFETY: All simulated malware artifacts clearly commented as training simulations
+-No real names of living people — fictional names only
+-No real classified markings — use INTERNAL/DRAFT/CONFIDENTIAL only
+-No functional exploit code in simulated artifacts — behavioral simulation only
+-No copyrighted content reproduction — original content matching the style
+-All simulated malware artifacts clearly commented as training simulations
 
 ## Priority Order (when generating multiple assets)
 1. **clue** assets — students need these to progress through objectives

@@ -692,3 +692,119 @@ Useful for quick ATT&CK coverage improvements without full enrichment.
 Documentation-only changes (ATT&CK table updates, objective rewording,
 citation additions) are applied without a review prompt.
 Structural changes still require explicit approval.
+## ISO MANAGEMENT
+ 
+### `./scripts/check-isos.sh` — Verify and download ISOs
+ 
+List all required ISOs:
+```
+./scripts/check-isos.sh --list
+```
+ 
+Check which ISOs are on Proxmox vs. missing:
+```
+./scripts/check-isos.sh
+```
+ 
+Download all auto-downloadable ISOs and upload to Proxmox:
+```
+./scripts/check-isos.sh --download --upload
+```
+ 
+Check ISOs needed for a specific template only:
+```
+./scripts/check-isos.sh --template tpl-kali-2024
+```
+ 
+---
+ 
+## PRE-BUILD VERIFICATION
+ 
+### `/preflight <brief>` — Verify infrastructure before building
+ 
+Check if everything is ready to build a scenario:
+```
+/preflight intel_briefs/volt_typhoon_ics_pivot_2025-06-01.yaml
+```
+Checks: templates on Proxmox, ISOs available, bridges exist, host resources
+sufficient, Ansible roles present, tool versions correct.
+ 
+---
+ 
+## DEDUPLICATION
+ 
+### `/dedup-check <brief>` — Check for scenario overlap
+ 
+Before building a new scenario, check if it overlaps with existing ones:
+```
+/dedup-check intel_briefs/oceanlotus_kerrdown_2026-03-27.yaml
+```
+Reports technique overlap, infrastructure overlap, curriculum coverage impact,
+and storage cost. Recommends BUILD, SKIP, or MERGE.
+ 
+---
+ 
+## TEACHING MATERIALS
+ 
+### `/curriculum <task>` — Generate teaching materials
+ 
+Generate full curriculum for a scenario:
+```
+/curriculum generate teaching materials for oceanlotus_kerrdown_spearphish \
+  from intel_briefs/oceanlotus_kerrdown_2026-03-27.yaml
+```
+ 
+Generate only lesson plan and slides:
+```
+/curriculum lesson plan and slides only for volt_typhoon_ics_pivot
+```
+ 
+Update curriculum after enrichment:
+```
+/curriculum update teaching materials for scada_modbus_recon — \
+  new ATT&CK techniques were added via /intel-enrich
+```
+ 
+---
+ 
+## CONTENT GENERATION
+ 
+### `/content <task>` — Generate dressing documents and artifacts
+ 
+Generate all dressing assets for a scenario from its intel brief:
+```
+/content generate dressing assets for oceanlotus_kerrdown_spearphish \
+  from intel_briefs/oceanlotus_kerrdown_2026-03-27.yaml
+```
+ 
+Generate a single specific asset:
+```
+/content generate DRESS-001 (Huong_dan_xu_ly_don_khieu_nai_2024.docx) \
+  for oceanlotus_kerrdown_spearphish
+```
+ 
+---
+ 
+## INTEL SCENARIO WITH FILE SOURCE
+ 
+### `/intel-scenario --source <file>` — Build from a local PDF
+ 
+Build from a PDF file uploaded to Claude or on the management workstation:
+```
+/intel-scenario --source /mnt/user-data/uploads/dragos_pipedream_report.pdf \
+                --sector energy \
+                --fidelity strict
+```
+ 
+Build from a PDF with full pipeline (dedup + preflight + curriculum):
+```
+/intel-scenario --source ~/reports/crowdstrike_fancy_bear_2024.pdf \
+                --fidelity balanced \
+                --focus combined
+```
+ 
+Skip dedup check for a one-off scenario:
+```
+/intel-scenario --source https://www.cisa.gov/news-events/cybersecurity-advisories/aa24-131a \
+                --skip-dedup
+```

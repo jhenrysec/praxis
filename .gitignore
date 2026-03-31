@@ -54,3 +54,11 @@ portal-ui/node_modules/
 *.sql.dump
 *.pg_dump
 database/data/
+
+# ISO download cache (large files, never commit)
+.iso-cache/
+*.iso
+ 
+# Scenario manifests contain no secrets but are generated — keep them
+# (they ARE committed to git for redeployment)
+# !scenarios/*/MANIFEST.yaml

@@ -52,11 +52,15 @@
 - `/portal-build` — Full portal system build (all layers in order)
 - `/intel-scenario`  — Build a new scenario from a threat intelligence source
 - `/intel-enrich`    — Enrich an existing scenario with threat intelligence
+- `/content`         — Generate dressing documents and simulated artifacts
+- `/curriculum`      — Generate teaching materials (lesson plans, slides, exercises)
+- `/preflight`       — Verify infrastructure dependencies before building
+- `/dedup-check`     — Check for scenario overlap before building
 
 ## Build Order (never skip phases)
 ### Lab Infrastructure (Phases 1-10)
 1. Proxmox host config → 2. ZFS pools → 3. Network bridges + firewall
-4. Packer templates → 5. Terraform modules (slot-aware) → 6. Ansible roles
+4. ISO verification + Packer templates (run ./scripts/check-isos.sh --download --upload first) → 5. Terraform modules (slot-aware) → 6. Ansible roles
 7. SCADA stack → 8. Scenario catalog → 9. Lab UI → 10. Docs
 
 ### Intel-Grounded Scenario Build (run after Phase 8 baseline scenarios are built)
@@ -69,7 +73,9 @@ Phase I-6: Ansible stages IOC artifacts per Layer 4
 Phase I-7: Content generation produces dressing assets per Layer 5
 Phase I-8: SECURITY_AGENT validates ATT&CK coverage against brief
 Phase I-9: DOCS_AGENT produces scenario card with source citations
-
+Phase I-10: CURRICULUM_AGENT generates lesson plan, slides, exercises
+Phase I-11: Scenario manifest written to scenarios/<name>/MANIFEST.yaml
+ 
 ### Portal System (Phases 11-16 — run after Phase 3)
 11. PostgreSQL database + migrations → 12. Backend API (Express + auth + RBAC)
 13. Portal UI auth layer → 14. Instructor admin dashboard
@@ -87,6 +93,11 @@ Phase I-9: DOCS_AGENT produces scenario card with source citations
 - @agents/INTEL_AGENT.md
 - @skills/INTEL_SKILL.md
 - @intel_briefs/              — generated intel briefs (committed to git)
+- @agents/CURRICULUM_AGENT.md
+- @agents/CONTENT_AGENT.md
+- @skills/CONTENT_SKILL.md
+- @scenarios/MANIFEST_TEMPLATE.yaml
+- @scripts/iso-manifest.yaml
   
 ## 20-Slot Architecture
 - VM IDs: slot N uses IDs 200+(N-1)*10 through 200+(N-1)*10+9
@@ -109,3 +120,8 @@ Phase I-9: DOCS_AGENT produces scenario card with source citations
 - [ ] All admin routes protected server-side (not just client-side)
 - [ ] CHANGELOG.md and relevant docs are current
 - [ ] SECURITY_AGENT has reviewed exposed services
+- [ ] Preflight check passes: all templates, ISOs, and bridges verified
+- [ ] Dedup check confirms scenario adds unique ATT&CK coverage
+- [ ] Scenario manifest written with all build artifacts cataloged
+- [ ] Teaching materials generated and placed in curriculum/ directory
+

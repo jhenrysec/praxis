@@ -78,13 +78,17 @@
 | http-proxy-middleware | 3.0.x | npm | `npm list http-proxy-middleware` |
 | PM2 | 5.x | npm global | `pm2 --version` |
 
-## Portal UI (additions to existing frontend table)
+---
+
+## Portal UI
 
 | Component | Version | Source |
 |---|---|---|
 | react-router-dom | 7.0.x | npm |
 | @novnc/novnc | 1.5.x | npm |
 | nginx | 1.24.x | apt | `nginx -v` |
+
+---
 
 ## Database
 
@@ -93,55 +97,3 @@
 | PostgreSQL 16 | 16.x | Installed via pgdg apt repo |
 | Database name | labportal | |
 | DB user | labportal | password in portal-backend/.env |
-
-# Project State
-
-**Last updated**: (update at start/end of every session)  
-**Maintained by**: ORCHESTRATOR
-
----
-
-## Phase Completion
-
-- [ ] Phase 1: Proxmox host configuration
-- [ ] Phase 2: ZFS storage pools
-- [ ] Phase 3: Network bridges + firewall
-- [ ] Phase 4: Packer template builds
-- [ ] Phase 5: Terraform modules
-- [ ] Phase 6: Ansible roles
-- [ ] Phase 7: SCADA stack deployment
-- [ ] Phase 8: Scenario catalog (initial 4)
-- [ ] Phase 9: Lab management UI
-- [ ] Phase 10: Documentation set
-
----
-
-## Active Tasks
-
-| Task ID | Description | Assigned Agent | Status | Blocking |
-|---|---|---|---|---|
-| — | — | — | — | — |
-
----
-
-## Blocked Tasks
-
-| Task ID | Reason | Resolution needed from |
-|---|---|---|
-| — | — | — |
-
----
-
-## Known Issues
-
-See `docs/KNOWN_ISSUES.md` for details.
-
-| Issue ID | Summary | Severity | Status |
-|---|---|---|---|
-| — | — | — | — |
-
----
-
-## Next Session Goals
-
-1. (fill in before each session)

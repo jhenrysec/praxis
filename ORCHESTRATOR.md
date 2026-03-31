@@ -21,7 +21,9 @@ operations, dependency resolution, task delegation, and release gating.
 | SCADA_AGENT | agents/SCADA_AGENT.md | OpenPLC, Ignition, GRFICSv2, ICS protocols | Any OT/ICS/SCADA, protocol, or industrial control task |
 | SECURITY_AGENT | agents/SECURITY_AGENT.md | Hardening, CVEs, MITRE ATT&CK, firewall | Any security policy, CVE mapping, or hardening task |
 | DOCS_AGENT | agents/DOCS_AGENT.md | Markdown, changelogs, scenario cards, READMEs | Any documentation, changelog, or reference material task |
-
+| CONTENT_AGENT | agents/CONTENT_AGENT.md | Dressing documents, simulated artifacts, sector content | Layer 5 dressing asset generation from intel briefs |
+| CURRICULUM_AGENT | agents/CURRICULUM_AGENT.md | Lesson plans, slides, exercises, rubrics | Teaching material generation after scenario builds |
+ 
 ---
 
 ## Orchestration Rules
@@ -40,6 +42,21 @@ Phase 7: SCADA stack deployment       → SCADA_AGENT + INFRA_AGENT (network)
 Phase 8: Scenario catalog             → INFRA_AGENT + SCADA_AGENT + SECURITY_AGENT
 Phase 9: Lab management UI            → FRONTEND_AGENT
 Phase 10: Documentation set           → DOCS_AGENT
+### Intel-Grounded Scenario Pipeline (triggered by /intel-scenario)
+Phase I-0:  ISO verification               → check-isos.sh
+Phase I-1:  Source ingestion                → INTEL_AGENT
+Phase I-2:  Intel brief generation          → INTEL_AGENT
+Phase I-3:  Deduplication check             → INTEL_AGENT (dedup-check)
+Phase I-4:  Infrastructure preflight        → ORCHESTRATOR (preflight)
+Phase I-4a: Template builds (if needed)     → INFRA_AGENT (Packer)
+Phase I-5:  Topology build                  → INFRA_AGENT (Terraform)
+Phase I-6:  Protocol configuration          → SCADA_AGENT (if OT)
+Phase I-7:  Artifact staging                → INFRA_AGENT (Ansible)
+Phase I-8:  Dressing content generation     → CONTENT_AGENT
+Phase I-9:  Security review                 → SECURITY_AGENT
+Phase I-10: Documentation                   → DOCS_AGENT
+Phase I-11: Teaching materials              → CURRICULUM_AGENT
+Phase I-12: Manifest + final validation     → ORCHESTRATOR
 ```
 
 Never start Phase N+1 until Phase N outputs are verified and documented.
@@ -64,7 +81,26 @@ When routing a task to an agent:
 - Updated reference doc if the change modifies a config surface
 - If a new scenario: a scenario card in `docs/scenarios/`
 
-### 5. Conflict Resolution
+### 5. Pre-Build Infrastructure Gate (Intel-Grounded Scenarios Only)
+Before routing an intel brief to build agents:
+1. Run dedup check — verify the scenario adds unique ATT&CK coverage
+2. Run preflight — verify all templates, ISOs, and bridges exist
+3. If preflight identifies missing ISOs:
+   - Auto-downloadable: run `./scripts/check-isos.sh --download --upload`
+   - Manual: STOP and notify instructor with download instructions
+4. If preflight identifies missing templates:
+   - Route to INFRA_AGENT for Packer build before scenario build
+   - Re-run preflight after template build completes
+5. Only proceed to scenario build after preflight returns READY
+ 
+### 6. Post-Build Curriculum Gate (Intel-Grounded Scenarios Only)
+After all build agents complete and SECURITY_AGENT reviews:
+1. Route to CURRICULUM_AGENT for teaching material generation
+2. Route to DOCS_AGENT for final documentation pass
+3. Write scenario MANIFEST.yaml cataloging all build artifacts
+4. Run final validation: all files referenced in MANIFEST exist
+
+### 7. Conflict Resolution
 When two agents produce conflicting outputs (e.g., INFRA_AGENT firewall rule blocks SCADA_AGENT protocol):
 1. Flag the conflict explicitly
 2. Ask the human operator for resolution priority
@@ -119,7 +155,12 @@ Before marking any phase complete:
 | Snapshot | All VMs have a named baseline snapshot |
 | Docs | CHANGELOG.md and relevant docs are current |
 | Security review | SECURITY_AGENT has reviewed firewall rules and exposed services |
-
+| Preflight | All required templates exist on Proxmox, all ISOs available |
+| Dedup | Scenario adds unique ATT&CK techniques not covered by existing scenarios |
+| Manifest | MANIFEST.yaml written with all artifacts cataloged and verified |
+| Curriculum | Teaching materials generated for instructor use |
+| ISO check | All ISOs for required templates present on Proxmox storage |
+ 
 ---
 
 ## Communication Style

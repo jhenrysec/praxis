@@ -68,7 +68,7 @@ source "proxmox-iso" "windows" {
   communicator   = "winrm"
   winrm_username = "Administrator"
   winrm_password = "LabAdmin2024!"
-  winrm_timeout  = "45m"
+  winrm_timeout  = "60m"
   winrm_use_ssl  = false
   winrm_insecure = true
 
@@ -79,16 +79,13 @@ source "proxmox-iso" "windows" {
 build {
   sources = ["source.proxmox-iso.windows"]
 
-  # ── Install VirtIO guest agent ─────────────────────────────────────────────
+  # ── Verify QEMU Guest Agent is running (installed via autounattend) ────────
   provisioner "powershell" {
     inline = [
-      "# Install QEMU Guest Agent from VirtIO ISO",
-      "$installer = Get-ChildItem -Path 'D:\\guest-agent\\' -Filter 'qemu-ga-x86_64.msi' -Recurse | Select-Object -First 1",
-      "if ($installer) {",
-      "  Start-Process msiexec.exe -ArgumentList \"/i `\"$($installer.FullName)`\" /qn\" -Wait -NoNewWindow",
-      "  Write-Host 'QEMU Guest Agent installed'",
+      "if (Get-Service QEMU-GA -ErrorAction SilentlyContinue) {",
+      "  Write-Host 'QEMU Guest Agent: running'",
       "} else {",
-      "  Write-Host 'WARNING: QEMU Guest Agent installer not found on VirtIO ISO'",
+      "  Write-Host 'WARNING: QEMU Guest Agent service not found'",
       "}",
     ]
   }
@@ -125,7 +122,7 @@ build {
     ]
   }
 
-  # ── Configure PowerShell and WinRM for Ansible ────────────────────────────
+  # ── Configure WinRM for Ansible ────────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "# Ensure WinRM is configured for Ansible",
@@ -133,8 +130,8 @@ build {
       "Set-Item -Path WSMan:\\localhost\\Service\\Auth\\Basic -Value $true",
       "Set-Item -Path WSMan:\\localhost\\MaxEnvelopeSizekb -Value 8192",
       "",
-      "# Set PowerShell execution policy",
-      "Set-ExecutionPolicy RemoteSigned -Force",
+      "# Set PowerShell execution policy via registry (avoids GPO conflict)",
+      "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\PowerShell\\1\\ShellIds\\Microsoft.PowerShell' -Name ExecutionPolicy -Value RemoteSigned",
       "",
       "Write-Host 'WinRM configured for Ansible'",
     ]

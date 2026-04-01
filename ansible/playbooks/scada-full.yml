@@ -1,0 +1,48 @@
+---
+# ansible/playbooks/scada-full.yml
+# Full SCADA stack deployment: base config + OpenPLC + Ignition + GRFICSv2 +
+# InfluxDB historian + Grafana dashboards + Modbus-to-InfluxDB bridge.
+#
+# Usage: ansible-playbook -i inventory/<scenario> playbooks/scada-full.yml
+#
+# Host groups required:
+#   scada     — all SCADA/ICS hosts (gets common-linux)
+#   openplc   — OpenPLC Runtime nodes
+#   ignition  — Ignition Gateway nodes
+#   grfics    — GRFICSv2 Docker host (typically the historian VM)
+#   historian — InfluxDB + Grafana + historian bridge host
+
+- name: Configure Linux base on all SCADA hosts
+  hosts: scada
+  roles:
+    - common-linux
+
+- name: Configure OpenPLC nodes
+  hosts: openplc
+  roles:
+    - openplc-configure
+
+- name: Configure Ignition Gateway nodes
+  hosts: ignition
+  roles:
+    - ignition-configure
+
+- name: Deploy GRFICSv2 chemical plant simulator
+  hosts: grfics
+  roles:
+    - grficsv2-deploy
+
+- name: Deploy InfluxDB historian
+  hosts: historian
+  roles:
+    - influxdb-setup
+
+- name: Deploy Grafana SCADA dashboards
+  hosts: historian
+  roles:
+    - grafana-scada
+
+- name: Deploy Modbus-to-InfluxDB bridge
+  hosts: historian
+  roles:
+    - modbus-historian-bridge

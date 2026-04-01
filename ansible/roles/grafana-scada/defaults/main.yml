@@ -1,0 +1,22 @@
+---
+# ansible/roles/grafana-scada/defaults/main.yml
+# Grafana SCADA dashboards — default variables
+
+grafana_version: "11.3.1"
+grafana_deb_url: "https://dl.grafana.com/oss/release/grafana_11.3.1_amd64.deb"
+
+# Service
+grafana_port: 3000
+grafana_admin_user: admin
+grafana_admin_password: "LabGrafana2024!"
+
+# InfluxDB connection (consumed from influxdb-setup role)
+grafana_influxdb_url: "http://127.0.0.1:8086"
+grafana_influxdb_org: scada-lab
+grafana_influxdb_bucket: process-data
+# Token is read from influxdb_token_file at runtime
+grafana_influxdb_token_file: /etc/influxdb2/lab-token
+
+# Provisioning paths
+grafana_provisioning_dir: /etc/grafana/provisioning
+grafana_dashboards_dir: /var/lib/grafana/dashboards

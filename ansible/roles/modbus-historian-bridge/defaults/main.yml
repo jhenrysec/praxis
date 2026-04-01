@@ -1,0 +1,18 @@
+---
+# ansible/roles/modbus-historian-bridge/defaults/main.yml
+# Modbus-to-InfluxDB historian bridge — default variables
+
+historian_install_dir: /opt/modbus-historian
+historian_venv_dir: /opt/modbus-historian/venv
+
+# Modbus endpoints
+historian_openplc_host: "192.168.100.10"
+historian_grfics_host: "192.168.100.30"
+
+# InfluxDB connection
+historian_influxdb_url: "http://127.0.0.1:8086"
+historian_influxdb_org: scada-lab
+historian_influxdb_token_file: /etc/influxdb2/lab-token
+
+# Poll interval
+historian_poll_interval_ms: 1000

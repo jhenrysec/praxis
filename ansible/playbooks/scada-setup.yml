@@ -1,0 +1,19 @@
+---
+# ansible/playbooks/scada-setup.yml
+# Configure all SCADA/ICS nodes: OpenPLC + Ignition.
+# Usage: ansible-playbook -i inventory/<scenario> playbooks/scada-setup.yml
+
+- name: Configure Linux base on SCADA hosts
+  hosts: scada
+  roles:
+    - common-linux
+
+- name: Configure OpenPLC nodes
+  hosts: openplc
+  roles:
+    - openplc-configure
+
+- name: Configure Ignition nodes
+  hosts: ignition
+  roles:
+    - ignition-configure

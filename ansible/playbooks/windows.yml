@@ -1,0 +1,9 @@
+---
+# ansible/playbooks/windows.yml
+# Apply common-windows role to all Windows hosts.
+# Usage: ansible-playbook -i inventory/<scenario> playbooks/windows.yml
+
+- name: Configure Windows hosts
+  hosts: windows
+  roles:
+    - common-windows

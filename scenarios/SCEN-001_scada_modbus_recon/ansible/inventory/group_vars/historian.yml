@@ -1,0 +1,4 @@
+---
+# SCEN-001 Slot 1 — historian group variables
+historian_openplc_host: "192.168.101.10"
+historian_grfics_host: ""

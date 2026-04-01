@@ -1,0 +1,15 @@
+---
+# ad-member-workstation defaults
+ad_domain_name: "lab.local"
+ad_domain_admin: "Administrator"
+ad_domain_admin_password: "{{ vault_ad_admin_password | default('LabAdmin2024!') }}"
+
+# OU to join workstation into
+ad_computer_ou: "OU=Workstations,OU=Lab Computers,DC=lab,DC=local"
+
+# Local admin account for break-glass access
+local_admin_user: "labadmin"
+local_admin_password: "{{ vault_local_admin_password | default('LabLocal2024!') }}"
+
+# Credential caching (number of cached domain logons)
+cached_logons_count: 10

@@ -1,0 +1,55 @@
+# GRFICSv2 Chemical Plant Simulator — Docker Compose
+# Deployed by Ansible role: grficsv2-deploy
+# Three containers: PLC simulator, HMI (ScadaBR), Process simulation
+
+services:
+  simulation:
+    image: fortiphyd/grfics-simulation:latest
+    container_name: grfics_simulation
+    restart: unless-stopped
+    networks:
+      grfics_net:
+        ipv4_address: "{{ grficsv2_simulation_ip }}"
+    environment:
+      - REACTOR_TEMP_SETPOINT={{ grficsv2_reactor_temp_setpoint }}
+      - REACTOR_PRESSURE_MAX={{ grficsv2_reactor_pressure_max }}
+      - COOLING_FLOW_DEFAULT={{ grficsv2_cooling_flow_default }}
+
+  plc:
+    image: fortiphyd/grfics-plc:latest
+    container_name: grfics_plc
+    restart: unless-stopped
+    depends_on:
+      - simulation
+    networks:
+      grfics_net:
+        ipv4_address: "{{ grficsv2_plc_ip }}"
+    ports:
+      - "{{ grficsv2_plc_modbus_port }}:502"
+    environment:
+      - SIMULATION_HOST={{ grficsv2_simulation_ip }}
+
+  hmi:
+    image: fortiphyd/grfics-hmi:latest
+    container_name: grfics_hmi
+    restart: unless-stopped
+    depends_on:
+      - plc
+    networks:
+      grfics_net:
+        ipv4_address: "{{ grficsv2_hmi_ip }}"
+    ports:
+      - "{{ grficsv2_hmi_web_port }}:8080"
+      - "{{ grficsv2_hmi_vnc_port }}:5900"
+    environment:
+      - PLC_HOST={{ grficsv2_plc_ip }}
+      - PLC_PORT={{ grficsv2_plc_modbus_port }}
+
+networks:
+  grfics_net:
+    name: "{{ grficsv2_network_name }}"
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "{{ grficsv2_network_subnet }}"
+          gateway: "{{ grficsv2_network_gateway }}"

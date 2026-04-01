@@ -1,0 +1,21 @@
+---
+# ignition-configure defaults
+ignition_web_port: 8088
+ignition_opcua_port: 4840
+ignition_install_dir: "/usr/local/ignition"
+
+# Default gateway credentials (dev mode)
+ignition_admin_user: "admin"
+ignition_admin_password: "password"
+
+# Tags to create (scenario-specific override)
+ignition_tags: []
+# Example:
+# - { name: "TankLevel", type: "Int4", value: 500 }
+# - { name: "PumpSpeed", type: "Int4", value: 0 }
+# - { name: "SetPoint", type: "Int4", value: 750 }
+
+# OPC-UA device connections (scenario-specific override)
+ignition_opcua_connections: []
+# Example:
+# - { name: "OpenPLC", endpoint: "opc.tcp://192.168.100.10:4840" }

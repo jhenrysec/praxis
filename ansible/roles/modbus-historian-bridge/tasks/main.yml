@@ -1,0 +1,67 @@
+---
+# ansible/roles/modbus-historian-bridge/tasks/main.yml
+# Deploy the Modbus-to-InfluxDB historian bridge as a systemd service.
+
+- name: "[HISTORIAN] Install Python3 and venv"
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+    state: present
+
+- name: "[HISTORIAN] Create install directory"
+  ansible.builtin.file:
+    path: "{{ historian_install_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: "[HISTORIAN] Create Python venv"
+  ansible.builtin.command:
+    cmd: python3 -m venv "{{ historian_venv_dir }}"
+    creates: "{{ historian_venv_dir }}/bin/python"
+
+- name: "[HISTORIAN] Install Python dependencies"
+  ansible.builtin.pip:
+    name:
+      - "pymodbus>=3.7.0,<4.0.0"
+      - "influxdb-client>=1.40.0,<2.0.0"
+    virtualenv: "{{ historian_venv_dir }}"
+
+- name: "[HISTORIAN] Deploy historian bridge script"
+  ansible.builtin.copy:
+    src: modbus_historian.py
+    dest: "{{ historian_install_dir }}/modbus_historian.py"
+    mode: "0755"
+  notify: restart_historian_bridge
+
+- name: "[HISTORIAN] Deploy systemd service"
+  ansible.builtin.template:
+    src: modbus-historian.service.j2
+    dest: /etc/systemd/system/modbus-historian.service
+    mode: "0644"
+  notify:
+    - reload_systemd
+    - restart_historian_bridge
+
+- name: "[HISTORIAN] Enable and start historian bridge"
+  ansible.builtin.systemd:
+    name: modbus-historian
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: "[HISTORIAN] Verify service is running"
+  ansible.builtin.systemd:
+    name: modbus-historian
+  register: historian_status
+
+- name: "[HISTORIAN] Display status"
+  ansible.builtin.debug:
+    msg: |
+      Modbus Historian Bridge deployed:
+        Service:  modbus-historian.service ({{ historian_status.status.ActiveState }})
+        OpenPLC:  {{ historian_openplc_host }}:502
+        GRFICSv2: {{ historian_grfics_host }}:502
+        InfluxDB: {{ historian_influxdb_url }}
+        Interval: {{ historian_poll_interval_ms }}ms

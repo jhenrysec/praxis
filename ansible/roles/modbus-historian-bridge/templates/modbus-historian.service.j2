@@ -1,0 +1,21 @@
+[Unit]
+Description=Modbus-to-InfluxDB Historian Bridge
+After=network.target influxdb.service
+Wants=influxdb.service
+
+[Service]
+Type=simple
+ExecStart={{ historian_venv_dir }}/bin/python {{ historian_install_dir }}/modbus_historian.py
+Restart=on-failure
+RestartSec=10
+User=root
+
+Environment=OPENPLC_HOST={{ historian_openplc_host }}
+Environment=GRFICS_HOST={{ historian_grfics_host }}
+Environment=INFLUXDB_URL={{ historian_influxdb_url }}
+Environment=INFLUXDB_ORG={{ historian_influxdb_org }}
+Environment=INFLUXDB_TOKEN_FILE={{ historian_influxdb_token_file }}
+Environment=POLL_INTERVAL_MS={{ historian_poll_interval_ms }}
+
+[Install]
+WantedBy=multi-user.target

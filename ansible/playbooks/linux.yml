@@ -1,0 +1,9 @@
+---
+# ansible/playbooks/linux.yml
+# Apply common-linux role to all Linux hosts.
+# Usage: ansible-playbook -i inventory/<scenario> playbooks/linux.yml
+
+- name: Configure Linux hosts
+  hosts: linux
+  roles:
+    - common-linux

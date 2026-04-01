@@ -1,0 +1,98 @@
+---
+# ansible/roles/grafana-scada/tasks/main.yml
+# Install Grafana and provision SCADA process dashboards.
+
+- name: "[GRAFANA] Download Grafana {{ grafana_version }}"
+  ansible.builtin.get_url:
+    url: "{{ grafana_deb_url }}"
+    dest: "/tmp/grafana-{{ grafana_version }}.deb"
+    mode: "0644"
+
+- name: "[GRAFANA] Install Grafana package"
+  ansible.builtin.apt:
+    deb: "/tmp/grafana-{{ grafana_version }}.deb"
+    state: present
+
+- name: "[GRAFANA] Read InfluxDB API token"
+  ansible.builtin.slurp:
+    src: "{{ grafana_influxdb_token_file }}"
+  register: grafana_influx_token_raw
+
+- name: "[GRAFANA] Set token fact"
+  ansible.builtin.set_fact:
+    grafana_influxdb_token: "{{ grafana_influx_token_raw.content | b64decode | trim }}"
+
+- name: "[GRAFANA] Create dashboards directory"
+  ansible.builtin.file:
+    path: "{{ grafana_dashboards_dir }}"
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
+
+- name: "[GRAFANA] Deploy datasource provisioning"
+  ansible.builtin.template:
+    src: datasource-influxdb.yml.j2
+    dest: "{{ grafana_provisioning_dir }}/datasources/influxdb.yml"
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart_grafana
+
+- name: "[GRAFANA] Deploy dashboard provisioning config"
+  ansible.builtin.copy:
+    content: |
+      apiVersion: 1
+      providers:
+        - name: 'SCADA'
+          orgId: 1
+          folder: 'SCADA Process'
+          type: file
+          disableDeletion: false
+          updateIntervalSeconds: 30
+          options:
+            path: {{ grafana_dashboards_dir }}
+            foldersFromFilesStructure: false
+    dest: "{{ grafana_provisioning_dir }}/dashboards/scada.yml"
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: restart_grafana
+
+- name: "[GRAFANA] Deploy SCADA process dashboard"
+  ansible.builtin.copy:
+    src: scada-process-dashboard.json
+    dest: "{{ grafana_dashboards_dir }}/scada-process-dashboard.json"
+    owner: grafana
+    group: grafana
+    mode: "0644"
+  notify: restart_grafana
+
+- name: "[GRAFANA] Ensure Grafana data directory permissions"
+  ansible.builtin.file:
+    path: /var/lib/grafana
+    state: directory
+    owner: grafana
+    group: grafana
+    recurse: true
+
+- name: "[GRAFANA] Enable and start Grafana"
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+
+- name: "[GRAFANA] Wait for Grafana (port {{ grafana_port }})"
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ grafana_port }}"
+    timeout: 30
+
+- name: "[GRAFANA] Display status"
+  ansible.builtin.debug:
+    msg: |
+      Grafana {{ grafana_version }} configured:
+        URL:       http://{{ ansible_host }}:{{ grafana_port }}
+        User:      {{ grafana_admin_user }}
+        Dashboard: SCADA Process → Tank Fill Control
+        Data:      InfluxDB ({{ grafana_influxdb_org }}/{{ grafana_influxdb_bucket }})

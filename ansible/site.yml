@@ -1,0 +1,40 @@
+---
+# ansible/site.yml
+# Master playbook — applies roles based on host group membership.
+# Usage: ansible-playbook -i inventory/<scenario> site.yml
+# Or run individual group playbooks below for targeted execution.
+
+- name: Configure all Linux hosts
+  hosts: linux
+  roles:
+    - common-linux
+
+- name: Configure all Windows hosts
+  hosts: windows
+  roles:
+    - common-windows
+
+- name: Promote domain controllers
+  hosts: domain_controllers
+  roles:
+    - ad-domain-controller
+
+- name: Join workstations to domain
+  hosts: workstations
+  roles:
+    - ad-member-workstation
+
+- name: Apply intentional vulnerabilities
+  hosts: vulnerable
+  roles:
+    - vulnerable-services
+
+- name: Configure OpenPLC nodes
+  hosts: openplc
+  roles:
+    - openplc-configure
+
+- name: Configure Ignition nodes
+  hosts: ignition
+  roles:
+    - ignition-configure

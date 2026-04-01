@@ -1,0 +1,12 @@
+---
+# ad-domain-controller vars (higher precedence than defaults)
+# Windows features required for AD DS
+ad_features:
+  - AD-Domain-Services
+  - DNS
+  - DHCP
+  - RSAT-AD-Tools
+  - RSAT-AD-PowerShell
+  - RSAT-DNS-Server
+  - RSAT-DHCP
+  - GPMC

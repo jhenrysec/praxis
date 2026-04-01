@@ -1,0 +1,7 @@
+---
+# ansible/roles/grficsv2-deploy/handlers/main.yml
+
+- name: restart_grficsv2
+  ansible.builtin.command:
+    cmd: docker compose restart
+    chdir: "{{ grficsv2_install_dir }}"

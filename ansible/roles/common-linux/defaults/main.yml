@@ -1,0 +1,28 @@
+---
+# common-linux defaults
+common_packages:
+  - qemu-guest-agent
+  - python3
+  - curl
+  - wget
+  - ca-certificates
+  - gnupg
+  - sudo
+  - openssh-server
+  - net-tools
+  - htop
+  - vim
+  - unzip
+  - jq
+
+common_timezone: "America/New_York"
+
+# SSH hardening
+sshd_permit_root: "no"
+sshd_password_auth: "yes"
+sshd_max_auth_tries: 6
+
+# NTP
+ntp_servers:
+  - "0.pool.ntp.org"
+  - "1.pool.ntp.org"

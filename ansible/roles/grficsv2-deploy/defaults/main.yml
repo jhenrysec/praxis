@@ -1,0 +1,30 @@
+---
+# ansible/roles/grficsv2-deploy/defaults/main.yml
+# GRFICSv2 chemical plant simulator — default variables
+
+grficsv2_install_dir: /opt/grficsv2
+grficsv2_repo: https://github.com/Fortiphyd/GRFICSv2.git
+grficsv2_version: main
+
+# Docker engine
+docker_compose_version: "2.29.7"
+
+# Container networking — all containers on OT zone
+grficsv2_network_name: grfics_ot
+grficsv2_network_subnet: "192.168.100.0/24"
+grficsv2_network_gateway: "192.168.100.1"
+
+# Container IPs (static, on OT bridge)
+grficsv2_plc_ip: "192.168.100.30"
+grficsv2_hmi_ip: "192.168.100.31"
+grficsv2_simulation_ip: "192.168.100.32"
+
+# Exposed ports
+grficsv2_plc_modbus_port: 502
+grficsv2_hmi_web_port: 8080
+grficsv2_hmi_vnc_port: 5900
+
+# Process parameters (reactor simulation)
+grficsv2_reactor_temp_setpoint: 300
+grficsv2_reactor_pressure_max: 100
+grficsv2_cooling_flow_default: 50

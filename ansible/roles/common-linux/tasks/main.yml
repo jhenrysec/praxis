@@ -1,0 +1,70 @@
+---
+# ansible/roles/common-linux/tasks/main.yml
+# Base configuration for all Linux VMs in the lab.
+
+- name: "[COMMON] Set timezone"
+  ansible.builtin.timezone:
+    name: "{{ common_timezone }}"
+
+- name: "[COMMON] Update apt cache"
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: "[COMMON] Install common packages"
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: "[COMMON] Enable and start qemu-guest-agent"
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: "[COMMON] Configure SSH — PermitRootLogin"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin {{ sshd_permit_root }}"
+  notify: restart_sshd
+
+- name: "[COMMON] Configure SSH — PasswordAuthentication"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication {{ sshd_password_auth }}"
+  notify: restart_sshd
+
+- name: "[COMMON] Configure SSH — MaxAuthTries"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?MaxAuthTries"
+    line: "MaxAuthTries {{ sshd_max_auth_tries }}"
+  notify: restart_sshd
+
+- name: "[COMMON] Set hostname"
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname_short }}"
+  when: inventory_hostname_short is defined
+
+- name: "[COMMON] Configure /etc/hosts entry"
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^127\\.0\\.1\\.1"
+    line: "127.0.1.1  {{ inventory_hostname_short }}"
+  when: inventory_hostname_short is defined
+
+- name: "[COMMON] Ensure systemd-timesyncd is configured"
+  ansible.builtin.template:
+    src: timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf
+    mode: "0644"
+  notify: restart_timesyncd
+  when: false  # Disabled — use cloud-init NTP or chrony instead
+
+- name: "[COMMON] Disable unattended-upgrades (lab VMs)"
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: absent
+  ignore_errors: true

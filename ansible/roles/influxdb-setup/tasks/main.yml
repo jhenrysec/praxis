@@ -1,0 +1,126 @@
+---
+# ansible/roles/influxdb-setup/tasks/main.yml
+# Install and configure InfluxDB 2.7 as SCADA process historian.
+
+- name: "[INFLUXDB] Download InfluxDB {{ influxdb_version }}"
+  ansible.builtin.get_url:
+    url: "{{ influxdb_deb_url }}"
+    dest: "/tmp/influxdb2-{{ influxdb_version }}.deb"
+    mode: "0644"
+
+- name: "[INFLUXDB] Install InfluxDB package"
+  ansible.builtin.apt:
+    deb: "/tmp/influxdb2-{{ influxdb_version }}.deb"
+    state: present
+
+- name: "[INFLUXDB] Enable and start InfluxDB"
+  ansible.builtin.systemd:
+    name: influxdb
+    enabled: true
+    state: started
+
+- name: "[INFLUXDB] Wait for InfluxDB API (port {{ influxdb_port }})"
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ influxdb_port }}"
+    timeout: 30
+
+- name: "[INFLUXDB] Check if already set up"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ influxdb_port }}/api/v2/setup"
+    method: GET
+    return_content: true
+  register: influxdb_setup_check
+
+- name: "[INFLUXDB] Run initial setup"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ influxdb_port }}/api/v2/setup"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ influxdb_admin_user }}"
+      password: "{{ influxdb_admin_password }}"
+      org: "{{ influxdb_org }}"
+      bucket: "{{ influxdb_bucket }}"
+      retentionPeriodSeconds: "{{ (influxdb_retention | regex_replace('d$', '') | int) * 86400 }}"
+    status_code: [201]
+  register: influxdb_setup_result
+  when: influxdb_setup_check.json.allowed | default(false)
+
+- name: "[INFLUXDB] Create token directory"
+  ansible.builtin.file:
+    path: "{{ influxdb_token_file | dirname }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+  when: influxdb_setup_result is not skipped
+
+- name: "[INFLUXDB] Save API token"
+  ansible.builtin.copy:
+    content: "{{ influxdb_setup_result.json.auth.token }}"
+    dest: "{{ influxdb_token_file }}"
+    mode: "0600"
+    owner: root
+    group: root
+  when: influxdb_setup_result is not skipped
+
+- name: "[INFLUXDB] Read existing token"
+  ansible.builtin.slurp:
+    src: "{{ influxdb_token_file }}"
+  register: influxdb_token_content
+  when: influxdb_setup_result is skipped
+  failed_when: false
+
+- name: "[INFLUXDB] Set token fact"
+  ansible.builtin.set_fact:
+    influxdb_api_token: >-
+      {{ influxdb_setup_result.json.auth.token
+         if influxdb_setup_result is not skipped
+         else (influxdb_token_content.content | default('') | b64decode) }}
+
+- name: "[INFLUXDB] Look up org ID"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ influxdb_port }}/api/v2/orgs?org={{ influxdb_org }}"
+    method: GET
+    headers:
+      Authorization: "Token {{ influxdb_api_token }}"
+    return_content: true
+  register: influxdb_org_lookup
+  when: influxdb_api_token | length > 0
+
+- name: "[INFLUXDB] Create additional buckets"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ influxdb_port }}/api/v2/buckets"
+    method: POST
+    headers:
+      Authorization: "Token {{ influxdb_api_token }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      orgID: "{{ influxdb_org_lookup.json.orgs[0].id }}"
+      retentionRules:
+        - type: expire
+          everySeconds: "{{ item.retention_seconds }}"
+    status_code: [201, 422]
+  loop:
+    - { name: "scada-alerts", retention_seconds: 7776000 }
+    - { name: "grfics-data", retention_seconds: 2592000 }
+  when: influxdb_api_token | length > 0
+
+- name: "[INFLUXDB] Verify InfluxDB health"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ influxdb_port }}/health"
+    method: GET
+    return_content: true
+  register: influxdb_health
+
+- name: "[INFLUXDB] Display status"
+  ansible.builtin.debug:
+    msg: |
+      InfluxDB {{ influxdb_version }} configured:
+        API:    http://{{ ansible_host }}:{{ influxdb_port }}
+        Org:    {{ influxdb_org }}
+        Bucket: {{ influxdb_bucket }}
+        Health: {{ influxdb_health.json.status }}
+        Token:  stored at {{ influxdb_token_file }}

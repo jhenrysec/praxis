@@ -1,0 +1,88 @@
+---
+# ansible/roles/ad-domain-controller/tasks/main.yml
+# Promotes a Windows Server to a domain controller for lab.local.
+# Requires: common-windows role applied first.
+
+- name: "[AD-DC] Install AD DS, DNS, and DHCP roles"
+  ansible.windows.win_feature:
+    name: "{{ ad_features }}"
+    include_management_tools: true
+    state: present
+  register: ad_feature_install
+  notify: reboot_after_feature_install
+
+- name: "[AD-DC] Flush handlers — reboot if features require it"
+  ansible.builtin.meta: flush_handlers
+
+- name: "[AD-DC] Promote to domain controller"
+  microsoft.ad.domain:
+    dns_domain_name: "{{ ad_domain_name }}"
+    domain_netbios_name: "{{ ad_netbios_name }}"
+    safe_mode_password: "{{ ad_dsrm_password }}"
+    domain_mode: "{{ ad_domain_functional_level }}"
+    forest_mode: "{{ ad_forest_functional_level }}"
+    install_dns: true
+    state: domain_controller
+  register: ad_promotion
+  notify: reboot_after_promotion
+
+- name: "[AD-DC] Flush handlers — reboot after promotion"
+  ansible.builtin.meta: flush_handlers
+
+- name: "[AD-DC] Wait for AD DS to be ready"
+  ansible.windows.win_shell: |
+    Import-Module ActiveDirectory
+    Get-ADDomain
+  register: ad_ready
+  retries: 15
+  delay: 30
+  until: ad_ready.rc == 0
+
+- name: "[AD-DC] Configure DNS forwarders"
+  ansible.windows.win_shell: |
+    Set-DnsServerForwarder -IPAddress @({{ ad_dns_forwarders | map('regex_replace', '^(.*)$', '\"\\1\"') | join(',') }}) -ErrorAction SilentlyContinue
+
+- name: "[AD-DC] Create lab OU structure"
+  microsoft.ad.ou:
+    name: "{{ item.name }}"
+    path: "{{ item.path }}"
+    state: present
+  loop: "{{ ad_ous }}"
+
+- name: "[AD-DC] Create lab user accounts"
+  microsoft.ad.user:
+    name: "{{ item.name }}"
+    upn: "{{ item.username }}@{{ ad_domain_name }}"
+    sam_account_name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    password_never_expires: true
+    path: "{{ item.ou | default('OU=Lab Users,DC=lab,DC=local') }}"
+    state: present
+    enabled: true
+    groups:
+      set: "{{ item.groups | default([]) }}"
+  loop: "{{ ad_users }}"
+  no_log: true
+  when: ad_users | length > 0
+
+- name: "[AD-DC] Set SPNs for service accounts"
+  ansible.windows.win_shell: |
+    setspn -S {{ item.spn }} {{ ad_netbios_name }}\{{ item.username }}
+  loop: "{{ ad_users | selectattr('spn', 'defined') | list }}"
+  when: ad_users | length > 0
+  ignore_errors: true
+
+- name: "[AD-DC] Verify domain is operational"
+  ansible.windows.win_shell: |
+    $domain = Get-ADDomain
+    $dc = Get-ADDomainController
+    Write-Host "Domain: $($domain.DNSRoot)"
+    Write-Host "DC: $($dc.HostName)"
+    Write-Host "Site: $($dc.Site)"
+    Write-Host "Forest: $($domain.Forest)"
+  register: ad_verify
+  changed_when: false
+
+- name: "[AD-DC] Display domain info"
+  ansible.builtin.debug:
+    msg: "{{ ad_verify.stdout_lines }}"

@@ -1,0 +1,7 @@
+---
+# ansible/roles/influxdb-setup/handlers/main.yml
+
+- name: restart_influxdb
+  ansible.builtin.systemd:
+    name: influxdb
+    state: restarted

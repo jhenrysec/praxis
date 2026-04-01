@@ -1,0 +1,125 @@
+---
+# ansible/roles/openplc-configure/tasks/main.yml
+# Configures OpenPLC Runtime: uploads ladder logic, registers in DB,
+# starts runtime, verifies Modbus TCP is responding.
+
+- name: "[OPENPLC] Copy ladder logic program to PLC"
+  ansible.builtin.copy:
+    src: "files/{{ openplc_program }}"
+    dest: "/opt/openplc/webserver/st_files/{{ openplc_program }}"
+    mode: "0644"
+  when: openplc_program is defined and openplc_program | length > 0
+
+- name: "[OPENPLC] Register program in OpenPLC database"
+  ansible.builtin.shell: |
+    cd /opt/openplc/webserver
+    sqlite3 openplc.db "INSERT OR REPLACE INTO Programs (Name, Description, File, Date_upload) VALUES ('{{ openplc_program | regex_replace('\\.st$', '') }}', 'Uploaded by Ansible', '{{ openplc_program }}', strftime('%s','now'));"
+  when: openplc_program is defined and openplc_program | length > 0
+
+- name: "[OPENPLC] Set active program file"
+  ansible.builtin.copy:
+    content: "{{ openplc_program }}"
+    dest: /opt/openplc/webserver/active_program
+    mode: "0644"
+  when: openplc_program is defined and openplc_program | length > 0
+
+- name: "[OPENPLC] Stop OpenPLC service for compilation"
+  ansible.builtin.systemd:
+    name: openplc
+    state: stopped
+  when: openplc_program is defined and openplc_program | length > 0
+
+- name: "[OPENPLC] Compile ladder logic program"
+  ansible.builtin.shell: |
+    cd /opt/openplc/webserver
+    ./scripts/compile_program.sh "{{ openplc_program }}"
+  register: compile_result
+  when: openplc_program is defined and openplc_program | length > 0
+
+- name: "[OPENPLC] Display compile output"
+  ansible.builtin.debug:
+    msg: "{{ compile_result.stdout_lines[-5:] | default([]) }}"
+  when: compile_result is defined and compile_result.stdout_lines is defined
+
+- name: "[OPENPLC] Start OpenPLC service"
+  ansible.builtin.systemd:
+    name: openplc
+    state: started
+
+- name: "[OPENPLC] Wait for OpenPLC web interface"
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:8080"
+    status_code: [200, 302]
+    validate_certs: false
+  register: openplc_ready
+  retries: 15
+  delay: 10
+  until: openplc_ready.status in [200, 302]
+
+- name: "[OPENPLC] Start PLC runtime via API"
+  ansible.builtin.shell: |
+    python3 -c "
+    import requests, re, urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    base = 'http://{{ ansible_host }}:8080'
+    s = requests.Session()
+    # Get login page and CSRF token
+    r = s.get(f'{base}/login')
+    m = re.search(r\"value='([^']+)'\s+name='csrf_token'\", r.text)
+    if not m:
+        m = re.search(r'name=\"csrf_token\"\s+value=\"([^\"]+)\"', r.text)
+    if not m:
+        print(f'CSRF token not found in login page. Page length: {len(r.text)}')
+        print(r.text[:500])
+        exit(1)
+    csrf = m.group(1)
+    # Login
+    r = s.post(f'{base}/login',
+               data={'username': '{{ openplc_admin_user }}', 'password': '{{ openplc_admin_password }}', 'csrf_token': csrf},
+               allow_redirects=True)
+    print(f'Login: {r.status_code} url={r.url}')
+    # Start runtime
+    r = s.get(f'{base}/start_plc', allow_redirects=True)
+    print(f'Start PLC: {r.status_code}')
+    "
+  delegate_to: localhost
+  become: false
+  register: start_plc_result
+  when: openplc_start_runtime
+
+- name: "[OPENPLC] Display PLC start result"
+  ansible.builtin.debug:
+    msg: "{{ start_plc_result.stdout_lines | default([]) }}"
+  when: start_plc_result is defined and start_plc_result.stdout_lines is defined
+
+- name: "[OPENPLC] Wait for Modbus TCP to come up"
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ openplc_modbus_port }}"
+    timeout: 30
+    msg: "Modbus TCP port {{ openplc_modbus_port }} not responding on {{ ansible_host }}"
+  when: openplc_start_runtime
+
+- name: "[OPENPLC] Verify Modbus TCP with test read"
+  ansible.builtin.shell: |
+    python3 -c "
+    from pymodbus.client import ModbusTcpClient
+    client = ModbusTcpClient('{{ ansible_host }}', port={{ openplc_modbus_port }})
+    client.connect()
+    rr = client.read_holding_registers(address=0, count=4)
+    print(f'Holding registers: {rr.registers}')
+    rr2 = client.read_coils(address=0, count=3)
+    print(f'Coils: {rr2.bits[:3]}')
+    client.close()
+    "
+  delegate_to: localhost
+  become: false
+  register: modbus_test
+  changed_when: false
+  ignore_errors: true
+  when: openplc_start_runtime
+
+- name: "[OPENPLC] Display Modbus test result"
+  ansible.builtin.debug:
+    msg: "{{ modbus_test.stdout | default('Modbus test skipped or failed') }}"
+  when: openplc_start_runtime

@@ -1,0 +1,7 @@
+---
+- name: reboot_after_join
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+    post_reboot_delay: 60
+    msg: "Rebooting after domain join"
+  when: domain_join.reboot_required | default(false)

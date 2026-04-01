@@ -1,0 +1,20 @@
+---
+# ansible/roles/influxdb-setup/defaults/main.yml
+# InfluxDB 2.7 historian — default variables
+
+influxdb_version: "2.7.10"
+influxdb_deb_url: "https://dl.influxdata.com/influxdb/releases/influxdb2_2.7.10-1_amd64.deb"
+
+# Initial setup
+influxdb_admin_user: admin
+influxdb_admin_password: "LabHistorian2024!"
+influxdb_org: scada-lab
+influxdb_bucket: process-data
+influxdb_retention: 30d
+
+# Service
+influxdb_port: 8086
+influxdb_bind_address: "0.0.0.0"
+
+# API token (generated during setup, stored for other roles)
+influxdb_token_file: /etc/influxdb2/lab-token

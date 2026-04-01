@@ -1,0 +1,5 @@
+---
+- name: restart_openplc
+  ansible.builtin.systemd:
+    name: openplc
+    state: restarted

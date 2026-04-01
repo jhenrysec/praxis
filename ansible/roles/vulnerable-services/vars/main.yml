@@ -1,0 +1,11 @@
+---
+# ATT&CK technique mapping for documentation
+vuln_attack_mapping:
+  kerberoast: { tactic: "Credential Access", technique: "T1558.003", name: "Kerberoasting" }
+  open_shares: { tactic: "Lateral Movement", technique: "T1021.002", name: "SMB/Windows Admin Shares" }
+  weak_passwords: { tactic: "Credential Access", technique: "T1110", name: "Brute Force" }
+  powershell_unrestricted: { tactic: "Execution", technique: "T1059.001", name: "PowerShell" }
+  wdigest: { tactic: "Credential Access", technique: "T1003.001", name: "LSASS Memory" }
+  unquoted_service: { tactic: "Persistence", technique: "T1574.001", name: "Unquoted Service Path" }
+  modbus_no_auth: { tactic: "Collection (ICS)", technique: "T0836", name: "Modify Parameter" }
+  default_ics_creds: { tactic: "Lateral Movement (ICS)", technique: "T0869", name: "Standard Application Layer Protocol" }

@@ -1,0 +1,87 @@
+---
+# ansible/roles/vulnerable-services/tasks/main.yml
+# Introduces intentional vulnerabilities for lab scenarios.
+# Each vulnerability is independently toggled via defaults/vars.
+# All vulnerabilities are ATT&CK-mapped and documented.
+
+# ── T1558.003 — Kerberoastable Service Accounts ─────────────────────────────
+- name: "[VULN] Create Kerberoastable service accounts"
+  microsoft.ad.user:
+    name: "{{ item.username }}"
+    sam_account_name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    password_never_expires: true
+    path: "{{ item.ou | default('OU=Service Accounts,DC=lab,DC=local') }}"
+    state: present
+    enabled: true
+  loop: "{{ vuln_kerberoast_accounts }}"
+  no_log: true
+  when: vuln_kerberoast_enabled
+
+- name: "[VULN] Set SPNs on Kerberoastable accounts"
+  ansible.windows.win_shell: |
+    setspn -S {{ item.spn }} LAB\{{ item.username }}
+  loop: "{{ vuln_kerberoast_accounts }}"
+  when: vuln_kerberoast_enabled
+  ignore_errors: true
+
+# ── T1021.002 — Open SMB Shares ─────────────────────────────────────────────
+- name: "[VULN] Create share directories"
+  ansible.windows.win_file:
+    path: "{{ item.path }}"
+    state: directory
+  loop: "{{ vuln_open_shares }}"
+  when: vuln_open_shares_enabled
+
+- name: "[VULN] Create SMB shares with weak permissions"
+  ansible.windows.win_share:
+    name: "{{ item.name }}"
+    path: "{{ item.path }}"
+    full: "{{ item.permissions | default('Everyone') }}"
+    state: present
+  loop: "{{ vuln_open_shares }}"
+  when: vuln_open_shares_enabled
+
+# ── T1110 — Weak Local Passwords ────────────────────────────────────────────
+- name: "[VULN] Create accounts with weak passwords"
+  ansible.windows.win_user:
+    name: "{{ item.username }}"
+    password: "{{ item.password }}"
+    groups:
+      - "{{ item.groups | default(['Users']) }}"
+    state: present
+    password_never_expires: true
+  loop: "{{ vuln_weak_accounts }}"
+  no_log: true
+  when: vuln_weak_passwords_enabled
+
+# ── T1059.001 — PowerShell Unrestricted ──────────────────────────────────────
+- name: "[VULN] Set PowerShell execution policy to Unrestricted"
+  ansible.windows.win_shell: |
+    Set-ExecutionPolicy Unrestricted -Force -Scope LocalMachine
+  when: vuln_powershell_unrestricted
+
+- name: "[VULN] Disable PowerShell script block logging"
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging
+    name: EnableScriptBlockLogging
+    data: 0
+    type: dword
+  when: vuln_powershell_unrestricted
+
+# ── T1003.001 — WDigest Credential Caching ──────────────────────────────────
+- name: "[VULN] Enable WDigest authentication (cleartext creds in LSASS)"
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest
+    name: UseLogonCredential
+    data: 1
+    type: dword
+  when: vuln_wdigest_enabled
+
+# ── T1574.001 — Unquoted Service Path ───────────────────────────────────────
+- name: "[VULN] Create vulnerable service with unquoted path"
+  ansible.windows.win_shell: |
+    New-Item -Path "C:\Program Files\Lab Service" -ItemType Directory -Force | Out-Null
+    Copy-Item "C:\Windows\System32\svchost.exe" "C:\Program Files\Lab Service\labservice.exe" -Force
+    sc.exe create LabVulnSvc binPath= "C:\Program Files\Lab Service\labservice.exe" start= auto
+  when: vuln_unquoted_service_path

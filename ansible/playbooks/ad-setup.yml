@@ -1,0 +1,24 @@
+---
+# ansible/playbooks/ad-setup.yml
+# Full AD setup: promote DC, then join workstations, then apply vulns.
+# Usage: ansible-playbook -i inventory/<scenario> playbooks/ad-setup.yml
+
+- name: Configure Windows base on all Windows hosts
+  hosts: windows
+  roles:
+    - common-windows
+
+- name: Promote domain controllers
+  hosts: domain_controllers
+  roles:
+    - ad-domain-controller
+
+- name: Join workstations to domain
+  hosts: workstations
+  roles:
+    - ad-member-workstation
+
+- name: Apply intentional vulnerabilities
+  hosts: vulnerable
+  roles:
+    - vulnerable-services

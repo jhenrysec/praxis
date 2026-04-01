@@ -1,0 +1,28 @@
+---
+# common-windows defaults
+win_timezone: "Eastern Standard Time"
+
+# WinRM
+winrm_max_envelope_kb: 8192
+
+# Windows features to install on all Windows VMs
+win_common_features:
+  - Telnet-Client
+
+# Firewall rules to ensure
+win_firewall_rules:
+  - name: "WinRM-HTTP"
+    localport: 5985
+    protocol: TCP
+    direction: in
+    action: allow
+  - name: "WinRM-HTTPS"
+    localport: 5986
+    protocol: TCP
+    direction: in
+    action: allow
+  - name: "RDP"
+    localport: 3389
+    protocol: TCP
+    direction: in
+    action: allow

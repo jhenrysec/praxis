@@ -1,0 +1,38 @@
+---
+# vulnerable-services defaults
+# Each vulnerability is toggled independently. Scenarios enable only
+# the vulns they need via vars override.
+
+# T1558.003 — Kerberoasting: weak SPN service accounts
+vuln_kerberoast_enabled: false
+vuln_kerberoast_accounts: []
+# Example:
+# - { username: "svc_sql", password: "Summer2024!", spn: "MSSQLSvc/db01.lab.local:1433",
+#     ou: "OU=Service Accounts,DC=lab,DC=local" }
+
+# T1021.002 — SMB open shares with sensitive data
+vuln_open_shares_enabled: false
+vuln_open_shares: []
+# Example:
+# - { name: "IT_Share", path: "C:\\Shares\\IT", permissions: "Everyone:Read" }
+
+# T1110 — Weak local admin passwords
+vuln_weak_passwords_enabled: false
+vuln_weak_accounts: []
+# Example:
+# - { username: "svc_backup", password: "Password123" }
+
+# T1059.001 — PowerShell unrestricted + script logging disabled
+vuln_powershell_unrestricted: false
+
+# T1003.001 — WDigest credential caching (cleartext passwords in memory)
+vuln_wdigest_enabled: false
+
+# T1574.001 — Unquoted service path
+vuln_unquoted_service_path: false
+
+# T0836 — Modbus with no authentication (inherent to Modbus TCP)
+vuln_modbus_no_auth: false
+
+# T0869 — Default ICS credentials
+vuln_default_ics_creds: false

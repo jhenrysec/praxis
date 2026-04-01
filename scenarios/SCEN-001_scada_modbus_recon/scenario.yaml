@@ -1,0 +1,19 @@
+id: "SCEN-001"
+name: scada_modbus_recon
+display_name: "SCADA Modbus Recon & Manipulation"
+description: "Enumerate and manipulate Modbus TCP registers on an OpenPLC-based water tank control system. Students learn ICS protocol fundamentals, register mapping, and process manipulation."
+difficulty: Beginner
+estimated_hours: 2
+status: ready
+focus_areas:
+  - ics_ot
+  - red_team
+mitre_techniques:
+  - T0846  # Remote System Discovery
+  - T0842  # Network Sniffing
+  - T0836  # Modify Parameter
+  - T0855  # Unauthorized Command Message
+  - T0812  # Default Credentials
+vm_count: 3
+total_cpu: 8
+total_memory_mb: 8192

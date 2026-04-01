@@ -1,0 +1,18 @@
+---
+# openplc-configure defaults
+openplc_web_port: 8443
+openplc_web_scheme: "https"
+openplc_modbus_port: 502
+
+# Default OpenPLC credentials (intentionally weak for lab scenarios)
+openplc_admin_user: "openplc"
+openplc_admin_password: "openplc"
+
+# Ladder logic program to upload (must exist in files/)
+openplc_program: "tank_fill_control.st"
+
+# Whether to start the PLC runtime after upload
+openplc_start_runtime: true
+
+# Modbus slave ID
+openplc_slave_id: 1

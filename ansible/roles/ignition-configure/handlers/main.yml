@@ -1,0 +1,5 @@
+---
+- name: restart_ignition
+  ansible.builtin.systemd:
+    name: ignition
+    state: restarted

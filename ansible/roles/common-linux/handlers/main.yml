@@ -1,0 +1,10 @@
+---
+- name: restart_sshd
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+
+- name: restart_timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted

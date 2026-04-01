@@ -1,0 +1,7 @@
+---
+# ansible/roles/grafana-scada/handlers/main.yml
+
+- name: restart_grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    state: restarted

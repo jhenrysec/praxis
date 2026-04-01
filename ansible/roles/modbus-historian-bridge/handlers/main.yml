@@ -1,0 +1,11 @@
+---
+# ansible/roles/modbus-historian-bridge/handlers/main.yml
+
+- name: reload_systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart_historian_bridge
+  ansible.builtin.systemd:
+    name: modbus-historian
+    state: restarted

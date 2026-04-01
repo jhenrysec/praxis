@@ -1,0 +1,13 @@
+---
+- name: reboot_after_feature_install
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+    post_reboot_delay: 60
+  when: ad_feature_install.reboot_required | default(false)
+
+- name: reboot_after_promotion
+  ansible.windows.win_reboot:
+    reboot_timeout: 900
+    post_reboot_delay: 120
+    msg: "Rebooting after AD DS promotion"
+  when: ad_promotion.reboot_required | default(false)

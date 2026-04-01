@@ -16,7 +16,11 @@ export PROXMOX_VE_API_TOKEN_ID="terraform@pve!terraform"
 export PROXMOX_VE_API_TOKEN_SECRET="217d493f-e726-47e1-b7e5-82b07a408e99"
 
 # ── Packer ───────────────────────────────────────────────────────────────────
+export PKR_VAR_proxmox_url="${PROXMOX_VE_ENDPOINT}api2/json"
+export PKR_VAR_proxmox_username="${PROXMOX_VE_API_TOKEN_ID}"
 export PKR_VAR_proxmox_token="${PROXMOX_VE_API_TOKEN_SECRET}"
+export PKR_VAR_proxmox_node="pve01"
+export PKR_VAR_proxmox_storage_pool="local-zfs"
 export PKR_VAR_ssh_public_key="$(cat ~/.ssh/lab_key.pub)"
 
 # ── Terraform ────────────────────────────────────────────────────────────────
@@ -49,5 +53,9 @@ else
   echo "ℹ️  Proxmox credentials not set — edit lab-env.local.sh and source it"
 fi
 
+# ── Lab scripts on PATH ──────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="${SCRIPT_DIR}:${PATH}"
+
 set +a
-echo "✅ Lab environment loaded"
+echo "✅ Lab environment loaded (scripts/ added to PATH)"

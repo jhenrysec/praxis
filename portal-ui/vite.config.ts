@@ -9,6 +9,14 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
+  // noVNC's CJS build uses top-level await — ensure esbuild handles it during dev
+  optimizeDeps: {
+    include: ['@novnc/novnc/lib/rfb'],
+    esbuildOptions: {
+      supported: { 'top-level-await': true },
+    },
+  },
+
   server: {
     port: 3000,
     proxy: {
@@ -35,12 +43,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    target: 'es2022', // Required for noVNC's top-level await
+    commonjsOptions: {
+      // noVNC's CJS build uses top-level await which the commonjs plugin
+      // can't handle. Exclude it so Vite pre-bundles it with esbuild instead.
+      exclude: [/novnc/],
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           vendor:  ['react', 'react-dom', 'react-router-dom'],
           query:   ['@tanstack/react-query'],
-          novnc:   ['@novnc/novnc'],
           charts:  ['recharts'],
         },
       },

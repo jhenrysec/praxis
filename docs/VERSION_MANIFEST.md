@@ -5,6 +5,19 @@
 
 ---
 
+## Packer VM Templates
+
+| VM ID | Template Name | Base OS | Purpose | Packer File |
+|---|---|---|---|---|
+| 101 | tpl-kali-2024 | Kali 2024.4 | Attacker platform | `packer/templates/kali-2024.pkr.hcl` |
+| 102 | tpl-ubuntu-2404 | Ubuntu 24.04.2 LTS | General purpose server | `packer/templates/ubuntu-2404.pkr.hcl` |
+| 103 | tpl-debian-12 | Debian 12.9 | Lightweight server | `packer/templates/debian-12.pkr.hcl` |
+| 110 | tpl-win2022 | Windows Server 2022 Eval | AD / workstation base | `packer/templates/windows-server-2022.pkr.hcl` |
+| 150 | tpl-openplc | Debian 12.9 + OpenPLC v3 | ICS/SCADA PLC simulator | `packer/templates/openplc.pkr.hcl` |
+| 151 | tpl-ignition-dev | Debian 12.9 + Ignition 8.1.44 | HMI / historian | `packer/templates/ignition-dev.pkr.hcl` |
+
+---
+
 ## Hypervisor & Host
 
 | Component | Version | Source | Notes |
@@ -32,15 +45,18 @@
 
 ## SCADA/ICS
 
-| Component | Version | Source |
-|---|---|---|
-| OpenPLC Runtime | v3 (latest) | github.com/thiagoralves/OpenPLC_v3 |
-| Ignition Gateway | 8.1.x | inductiveautomation.com |
-| GRFICSv2 | latest | github.com/mosse-security/grficsv2 |
-| InfluxDB | 2.7.x | influxdata.com |
-| Grafana | 11.x | grafana.com |
-| pymodbus | 3.7.x | pip |
-| open62541 (OPC-UA) | 1.3.x | github.com/open62541/open62541 |
+| Component | Version | Source | Ansible Role |
+|---|---|---|---|
+| OpenPLC Runtime | v3 (latest) | github.com/thiagoralves/OpenPLC_v3 | `openplc-configure` |
+| Ignition Gateway | 8.1.44 | inductiveautomation.com | `ignition-configure` |
+| GRFICSv2 | latest (Docker) | github.com/Fortiphyd/GRFICSv2 | `grficsv2-deploy` |
+| InfluxDB | 2.7.10 | influxdata.com | `influxdb-setup` |
+| Grafana | 11.3.1 | grafana.com | `grafana-scada` |
+| Modbus Historian Bridge | 1.0 (custom) | `ansible/roles/modbus-historian-bridge/files/` | `modbus-historian-bridge` |
+| pymodbus | 3.7.x | pip | — |
+| influxdb-client (Python) | 1.40.x | pip | — |
+| opcua (Python) | 0.98.x | pip | — |
+| open62541 (OPC-UA) | 1.3.x | github.com/open62541/open62541 | — |
 
 ---
 

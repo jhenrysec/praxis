@@ -1,0 +1,337 @@
+import { useState } from 'react';
+import { useSlots, useSlotVMs, useSlotMutations, useScenarios } from '../hooks/useAdmin';
+import { StatusBadge } from '../components/shared/StatusBadge';
+import {
+  Rocket, Trash2, RotateCcw, Monitor, ChevronRight, Cpu, MemoryStick, Clock, Layers,
+} from 'lucide-react';
+import type { LabSlot, VMInfo } from '../types';
+
+export function SlotManagement() {
+  const { data: slotsData, isLoading } = useSlots();
+  const { data: scenariosData } = useScenarios();
+  const mutations = useSlotMutations();
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [deployScenario, setDeployScenario] = useState('');
+  const [showDeployAll, setShowDeployAll] = useState(false);
+  const [deployAllScenario, setDeployAllScenario] = useState('');
+
+  const slots = slotsData?.slots ?? [];
+  const scenarios = scenariosData?.scenarios ?? [];
+  const selected = slots.find((s) => s.slot_number === selectedSlot) ?? null;
+
+  const handleDeploy = (slot: number) => {
+    if (!deployScenario) return;
+    mutations.deploy.mutate({ slot, scenarioId: deployScenario });
+  };
+
+  const handleDestroy = (slot: number) => {
+    if (confirm(`Destroy all VMs in slot ${slot}?`)) {
+      mutations.destroy.mutate(slot);
+    }
+  };
+
+  const handleReset = (slot: number) => {
+    if (confirm(`Reset slot ${slot} to baseline snapshot?`)) {
+      mutations.reset.mutate(slot);
+    }
+  };
+
+  const handleDeployAll = () => {
+    if (!deployAllScenario) return;
+    if (confirm(`Deploy "${deployAllScenario}" to ALL assigned empty slots?`)) {
+      mutations.deployAll.mutate(deployAllScenario);
+      setShowDeployAll(false);
+      setDeployAllScenario('');
+    }
+  };
+
+  return (
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-wide">Lab Slots</h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {slots.filter((s) => s.status === 'running').length} running / {slots.length} total
+          </p>
+        </div>
+        <button
+          onClick={() => setShowDeployAll(true)}
+          className="flex items-center gap-2 bg-[var(--accent-blue)] text-[var(--bg-base)] px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+        >
+          <Layers className="w-4 h-4" /> Deploy All
+        </button>
+      </div>
+
+      {/* Deploy-all modal */}
+      {showDeployAll && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Deploy to All Slots</h2>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              Deploy the selected scenario to all user-assigned empty slots.
+            </p>
+            <select
+              value={deployAllScenario}
+              onChange={(e) => setDeployAllScenario(e.target.value)}
+              className="w-full bg-[var(--bg-base)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-sm mb-4"
+              aria-label="Select scenario for deploy-all"
+            >
+              <option value="">Select scenario...</option>
+              {scenarios.map((s) => (
+                <option key={s.id} value={s.id}>{s.display_name}</option>
+              ))}
+            </select>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeployAll(false); setDeployAllScenario(''); }}
+                className="flex-1 bg-[var(--bg-base)] border border-[var(--border-default)] rounded-lg py-2 text-sm hover:bg-[var(--bg-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeployAll}
+                disabled={!deployAllScenario || mutations.deployAll.isPending}
+                className="flex-1 bg-[var(--accent-blue)] text-[var(--bg-base)] rounded-lg py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+              >
+                {mutations.deployAll.isPending ? 'Deploying...' : 'Deploy All'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-[1fr_1fr] gap-6">
+        {/* Slot Grid */}
+        <div>
+          <h2 className="label-mono text-[var(--text-muted)] mb-3">SLOT GRID</h2>
+          {isLoading ? (
+            <div className="text-[var(--text-muted)] text-sm">Loading slots...</div>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {slots.map((slot) => (
+                <button
+                  key={slot.slot_number}
+                  onClick={() => setSelectedSlot(slot.slot_number)}
+                  className={`relative p-3 rounded-lg border text-left transition-all ${
+                    selectedSlot === slot.slot_number
+                      ? 'border-[var(--accent-green)] bg-[#00e5a00d]'
+                      : 'border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-active)]'
+                  }`}
+                  aria-label={`Slot ${slot.slot_number}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="label-mono text-[var(--text-primary)]">#{slot.slot_number}</span>
+                    <SlotStatusDot status={slot.status} />
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)] truncate">
+                    {slot.scenario_id ?? 'empty'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Slot Detail */}
+        <div>
+          <h2 className="label-mono text-[var(--text-muted)] mb-3">SLOT DETAIL</h2>
+          {selected ? (
+            <SlotDetail
+              slot={selected}
+              scenarios={scenarios}
+              deployScenario={deployScenario}
+              onDeployScenarioChange={setDeployScenario}
+              onDeploy={handleDeploy}
+              onDestroy={handleDestroy}
+              onReset={handleReset}
+              isPending={mutations.deploy.isPending || mutations.destroy.isPending || mutations.reset.isPending}
+            />
+          ) : (
+            <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-8 text-center text-[var(--text-muted)] text-sm">
+              Select a slot to view details
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlotStatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    running: '#00e5a0',
+    deploying: '#facc15',
+    destroying: '#fb7185',
+    error: '#fb7185',
+    empty: '#4b5563',
+  };
+  const color = colors[status] ?? '#4b5563';
+  const pulse = status === 'running' || status === 'deploying' || status === 'destroying';
+
+  return (
+    <span
+      className={`w-2 h-2 rounded-full inline-block ${pulse ? 'animate-pulse' : ''}`}
+      style={{ backgroundColor: color }}
+      title={status}
+    />
+  );
+}
+
+interface SlotDetailProps {
+  slot: LabSlot;
+  scenarios: Array<{ id: string; display_name: string }>;
+  deployScenario: string;
+  onDeployScenarioChange: (v: string) => void;
+  onDeploy: (slot: number) => void;
+  onDestroy: (slot: number) => void;
+  onReset: (slot: number) => void;
+  isPending: boolean;
+}
+
+function SlotDetail({ slot, scenarios, deployScenario, onDeployScenarioChange, onDeploy, onDestroy, onReset, isPending }: SlotDetailProps) {
+  const { data: vmData } = useSlotVMs(slot.slot_number);
+  const vms = vmData?.vms ?? [];
+
+  return (
+    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold">Slot #{slot.slot_number}</span>
+          <StatusBadge status={slot.status} />
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="px-4 py-3 border-b border-[var(--border-default)] grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <span className="text-[var(--text-muted)]">Scenario:</span>{' '}
+          <span className="text-[var(--text-primary)]">{slot.scenario_id ?? '—'}</span>
+        </div>
+        <div>
+          <span className="text-[var(--text-muted)]">User:</span>{' '}
+          <span className="text-[var(--text-primary)]">{slot.user_id ?? '—'}</span>
+        </div>
+        <div>
+          <span className="text-[var(--text-muted)]">Deployed:</span>{' '}
+          <span className="text-[var(--text-primary)]">
+            {slot.deployed_at ? new Date(slot.deployed_at).toLocaleString() : '—'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[var(--text-muted)]">Last Reset:</span>{' '}
+          <span className="text-[var(--text-primary)]">
+            {slot.last_reset ? new Date(slot.last_reset).toLocaleString() : '—'}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="px-4 py-3 border-b border-[var(--border-default)]">
+        {slot.status === 'empty' ? (
+          <div className="flex gap-2">
+            <select
+              value={deployScenario}
+              onChange={(e) => onDeployScenarioChange(e.target.value)}
+              className="flex-1 bg-[var(--bg-base)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-sm"
+              aria-label="Select scenario to deploy"
+            >
+              <option value="">Select scenario...</option>
+              {scenarios.map((s) => (
+                <option key={s.id} value={s.id}>{s.display_name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => onDeploy(slot.slot_number)}
+              disabled={!deployScenario || isPending}
+              className="flex items-center gap-2 bg-[var(--accent-green)] text-[var(--bg-base)] px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+              aria-label="Deploy scenario"
+            >
+              <Rocket className="w-4 h-4" /> Deploy
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onReset(slot.slot_number)}
+              disabled={slot.status !== 'running' || isPending}
+              className="flex items-center gap-2 bg-[var(--bg-base)] border border-[var(--border-default)] px-3 py-2 rounded-lg text-sm hover:bg-[var(--bg-hover)] disabled:opacity-30"
+              aria-label="Reset slot"
+            >
+              <RotateCcw className="w-4 h-4" /> Reset
+            </button>
+            <button
+              onClick={() => onDestroy(slot.slot_number)}
+              disabled={isPending || slot.status === 'deploying' || slot.status === 'destroying'}
+              className="flex items-center gap-2 bg-[#fb71851a] border border-[#fb718533] text-[var(--accent-red)] px-3 py-2 rounded-lg text-sm hover:bg-[#fb71852a] disabled:opacity-30"
+              aria-label="Destroy slot"
+            >
+              <Trash2 className="w-4 h-4" /> Destroy
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* VMs */}
+      <div className="px-4 py-3">
+        <h3 className="label-mono text-[var(--text-muted)] mb-2">VIRTUAL MACHINES</h3>
+        {vms.length === 0 ? (
+          <p className="text-sm text-[var(--text-muted)]">No VMs in this slot</p>
+        ) : (
+          <div className="space-y-2">
+            {vms.map((vm) => (
+              <VMRow key={vm.vmid} vm={vm} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Deploy log */}
+      {slot.deploy_log && (
+        <div className="px-4 py-3 border-t border-[var(--border-default)]">
+          <h3 className="label-mono text-[var(--text-muted)] mb-2">DEPLOY LOG</h3>
+          <pre className="text-xs text-[var(--text-secondary)] bg-[var(--bg-base)] rounded-lg p-3 max-h-40 overflow-y-auto whitespace-pre-wrap">
+            {slot.deploy_log}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VMRow({ vm }: { vm: VMInfo }) {
+  const memPercent = vm.maxmem > 0 ? Math.round((vm.mem / vm.maxmem) * 100) : 0;
+  const uptimeStr = formatUptime(vm.uptime);
+
+  return (
+    <div className="flex items-center gap-3 bg-[var(--bg-base)] rounded-lg px-3 py-2">
+      <Monitor className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[var(--text-primary)] truncate">{vm.name}</span>
+          <StatusBadge status={vm.status} />
+        </div>
+        <div className="flex items-center gap-4 mt-1 text-xs text-[var(--text-muted)]">
+          <span className="flex items-center gap-1">
+            <Cpu className="w-3 h-3" /> {vm.cpu.toFixed(0)}%
+          </span>
+          <span className="flex items-center gap-1">
+            <MemoryStick className="w-3 h-3" /> {memPercent}%
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" /> {uptimeStr}
+          </span>
+        </div>
+      </div>
+      <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+    </div>
+  );
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}h ${mins}m`;
+}

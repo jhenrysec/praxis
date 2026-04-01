@@ -1,0 +1,801 @@
+#!/usr/bin/env bash
+# scripts/build — One-command scenario deployment pipeline
+#
+# Usage:
+#   build <SCEN-XXX>                    Deploy scenario to slot 1
+#   build <SCEN-XXX> --slot 5           Deploy to specific student slot
+#   build <SCEN-XXX> --destroy          Tear down a deployed scenario
+#   build <SCEN-XXX> --plan-only        Terraform plan without apply
+#   build <SCEN-XXX> --skip-templates   Skip Packer template check
+#   build <SCEN-XXX> --ansible-only     Skip Terraform, run Ansible only
+#   build <SCEN-XXX> --terraform-only   Skip Ansible, run Terraform only
+#   build <SCEN-XXX> --force            Skip confirmation prompts
+#   build --list                        List all available scenarios
+#   build --status                      Show template build status
+#
+# Examples:
+#   build SCEN-005
+#   build SCEN-005 --slot 3
+#   build SCEN-001 --destroy --slot 5
+#   build SCEN-005 --plan-only --slot 2
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SCENARIOS_DIR="${REPO_ROOT}/scenarios"
+PACKER_DIR="${REPO_ROOT}/packer"
+SHARED_ANSIBLE="${REPO_ROOT}/ansible"
+TEMPLATE_REGISTRY="${PACKER_DIR}/template-registry.yaml"
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; BOLD='\033[1m'
+DIM='\033[2m'; RESET='\033[0m'
+
+# ── Defaults ──────────────────────────────────────────────────────────────────
+SLOT=1
+SKIP_TEMPLATES=false
+PLAN_ONLY=false
+DESTROY=false
+ANSIBLE_ONLY=false
+TERRAFORM_ONLY=false
+FORCE=false
+LIST_MODE=false
+STATUS_MODE=false
+
+# ── Functions ─────────────────────────────────────────────────────────────────
+
+banner() {
+  echo ""
+  echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${CYAN}║           ${BOLD}VULNERABILITY LAB — BUILD SYSTEM${RESET}${CYAN}                  ║${RESET}"
+  echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+}
+
+step() {
+  echo -e "\n${CYAN}━━━ ${BOLD}$1${RESET} ${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+}
+
+info()  { echo -e "  ${DIM}→${RESET} $1"; }
+ok()    { echo -e "  ${GREEN}✅ $1${RESET}"; }
+warn()  { echo -e "  ${YELLOW}⚠️  $1${RESET}"; }
+fail()  { echo -e "  ${RED}❌ $1${RESET}"; }
+die()   { fail "$1"; exit 1; }
+
+# ── Parse arguments ───────────────────────────────────────────────────────────
+
+usage() {
+  echo "Usage: build <SCEN-XXX> [options]"
+  echo ""
+  echo "Options:"
+  echo "  --slot N           Student slot (1-20, default: 1)"
+  echo "  --destroy          Destroy instead of deploy"
+  echo "  --plan-only        Run terraform plan without applying"
+  echo "  --skip-templates   Skip Packer template verification"
+  echo "  --ansible-only     Skip Terraform, run Ansible only"
+  echo "  --terraform-only   Skip Ansible, run Terraform only"
+  echo "  --force            Skip confirmation prompts"
+  echo "  --list             List available scenarios"
+  echo "  --status           Show Proxmox template status"
+  echo "  -h, --help         Show this help"
+  exit 0
+}
+
+SCENARIO_INPUT=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --slot)        SLOT="$2"; shift 2 ;;
+    --destroy)     DESTROY=true; shift ;;
+    --plan-only)   PLAN_ONLY=true; shift ;;
+    --skip-templates) SKIP_TEMPLATES=true; shift ;;
+    --ansible-only)   ANSIBLE_ONLY=true; shift ;;
+    --terraform-only) TERRAFORM_ONLY=true; shift ;;
+    --force)       FORCE=true; shift ;;
+    --list)        LIST_MODE=true; shift ;;
+    --status)      STATUS_MODE=true; shift ;;
+    -h|--help)     usage ;;
+    -*)            die "Unknown option: $1" ;;
+    *)             SCENARIO_INPUT="$1"; shift ;;
+  esac
+done
+
+# ── Prereq checks ────────────────────────────────────────────────────────────
+
+check_prereqs() {
+  local missing=0
+  for cmd in terraform packer jq curl; do
+    if ! command -v "$cmd" &>/dev/null; then
+      fail "Required tool not found: $cmd"
+      missing=$((missing + 1))
+    fi
+  done
+  if ! command -v ansible-playbook &>/dev/null; then
+    if [[ "$TERRAFORM_ONLY" != "true" ]]; then
+      fail "ansible-playbook not found (required unless --terraform-only)"
+      missing=$((missing + 1))
+    fi
+  fi
+  [[ $missing -gt 0 ]] && die "Install missing tools and retry"
+  return 0
+}
+
+# ── Load environment ──────────────────────────────────────────────────────────
+
+load_env() {
+  if [[ -f "${REPO_ROOT}/scripts/lab-env.local.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${REPO_ROOT}/scripts/lab-env.local.sh"
+  elif [[ -f "${REPO_ROOT}/scripts/lab-env.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${REPO_ROOT}/scripts/lab-env.sh"
+  fi
+
+  if [[ -z "${PROXMOX_VE_API_TOKEN_ID:-}" || -z "${PROXMOX_VE_API_TOKEN_SECRET:-}" ]]; then
+    die "Proxmox credentials not set. Copy scripts/lab-env.sh to scripts/lab-env.local.sh, fill in values, then retry."
+  fi
+}
+
+# ── Proxmox API helpers ──────────────────────────────────────────────────────
+
+proxmox_api() {
+  local endpoint="$1"
+  curl -s -k \
+    -H "Authorization: PVEAPIToken=${PROXMOX_VE_API_TOKEN_ID}=${PROXMOX_VE_API_TOKEN_SECRET}" \
+    "${PROXMOX_VE_ENDPOINT}api2/json${endpoint}" 2>/dev/null
+}
+
+proxmox_check_connectivity() {
+  local result
+  result=$(curl -s -k -o /dev/null -w "%{http_code}" \
+    -H "Authorization: PVEAPIToken=${PROXMOX_VE_API_TOKEN_ID}=${PROXMOX_VE_API_TOKEN_SECRET}" \
+    "${PROXMOX_VE_ENDPOINT}api2/json/version" 2>/dev/null)
+  if [[ "$result" != "200" ]]; then
+    die "Proxmox API unreachable (HTTP ${result}). Check PROXMOX_VE_ENDPOINT and credentials."
+  fi
+  ok "Proxmox API connected"
+}
+
+# Get list of existing template VM IDs on the node
+proxmox_get_templates() {
+  local node="${1:-pve01}"
+  proxmox_api "/nodes/${node}/qemu" | \
+    jq -r '.data[] | select(.template == 1) | .vmid' 2>/dev/null | sort -n
+}
+
+# ── Scenario discovery ────────────────────────────────────────────────────────
+
+# Resolve user input (SCEN-005, scen-005, SCEN-005, 005, browser_exploit) to scenario dir
+resolve_scenario() {
+  local input="${1^^}"  # uppercase
+
+  # Direct match: SCEN-XXX
+  for dir in "${SCENARIOS_DIR}"/SCEN-*/; do
+    [[ ! -d "$dir" ]] && continue
+    local dirname
+    dirname="$(basename "$dir")"
+    local scen_id="${dirname%%_*}"  # SCEN-XXX
+
+    if [[ "$scen_id" == "$input" ]]; then
+      echo "$dir"
+      return 0
+    fi
+  done
+
+  # Numeric match: just "005" or "5"
+  if [[ "$input" =~ ^[0-9]+$ ]]; then
+    local padded
+    padded=$(printf "SCEN-%03d" "$input")
+    for dir in "${SCENARIOS_DIR}"/SCEN-*/; do
+      [[ ! -d "$dir" ]] && continue
+      local dirname
+      dirname="$(basename "$dir")"
+      if [[ "${dirname%%_*}" == "$padded" ]]; then
+        echo "$dir"
+        return 0
+      fi
+    done
+  fi
+
+  # Name match: scenario slug
+  local lower_input="${1,,}"
+  for dir in "${SCENARIOS_DIR}"/SCEN-*/; do
+    [[ ! -d "$dir" ]] && continue
+    local dirname
+    dirname="$(basename "$dir")"
+    local slug="${dirname#SCEN-[0-9]*_}"  # everything after SCEN-XXX_
+    if [[ "$slug" == "$lower_input" ]]; then
+      echo "$dir"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+list_scenarios() {
+  banner
+  echo -e "${BOLD}Available Scenarios${RESET}"
+  echo ""
+
+  for dir in "${SCENARIOS_DIR}"/SCEN-*/; do
+    [[ ! -d "$dir" ]] && continue
+    local dirname
+    dirname="$(basename "$dir")"
+    local scen_id="${dirname%%_*}"
+    local yaml="${dir}/scenario.yaml"
+
+    if [[ -f "$yaml" ]]; then
+      local display difficulty hours vms focus
+      display=$(grep '^display_name:' "$yaml" | sed 's/^display_name: *//' | tr -d '"')
+      difficulty=$(grep '^difficulty:' "$yaml" | awk '{print $2}')
+      hours=$(grep '^estimated_hours:' "$yaml" | awk '{print $2}')
+      vms=$(grep '^vm_count:' "$yaml" | awk '{print $2}')
+      focus=$(python3 -c "
+import yaml, sys
+with open('$yaml') as f:
+    d = yaml.safe_load(f)
+print(', '.join(d.get('focus_areas', [])))
+" 2>/dev/null)
+
+      echo -e "  ${CYAN}${BOLD}${scen_id}${RESET}  ${display}"
+      echo -e "         ${DIM}Difficulty: ${difficulty} | Duration: ${hours}h | VMs: ${vms} | Focus: ${focus}${RESET}"
+      echo ""
+    else
+      echo -e "  ${CYAN}${BOLD}${scen_id}${RESET}  ${dirname#SCEN-[0-9]*_}"
+      echo ""
+    fi
+  done
+
+  echo -e "${DIM}Usage: build SCEN-005 [--slot N]${RESET}"
+}
+
+# ── Template management ──────────────────────────────────────────────────────
+
+# Extract template_vm_id values from scenario's main.tf
+get_required_template_ids() {
+  local tf_dir="$1"
+  grep 'template_vm_id' "${tf_dir}/main.tf" | \
+    grep -oP 'template_vm_id\s*=\s*\K\d+' | sort -un
+}
+
+# Look up template name from registry by ID
+template_name_by_id() {
+  local tmpl_id="$1"
+  python3 -c "
+import yaml, sys
+with open('${TEMPLATE_REGISTRY}') as f:
+    reg = yaml.safe_load(f)
+t = reg.get('templates', {}).get(int('${tmpl_id}'), {})
+print(t.get('name', 'unknown'))
+" 2>/dev/null
+}
+
+# Look up packer file from registry by ID
+template_packer_file_by_id() {
+  local tmpl_id="$1"
+  python3 -c "
+import yaml, sys
+with open('${TEMPLATE_REGISTRY}') as f:
+    reg = yaml.safe_load(f)
+t = reg.get('templates', {}).get(int('${tmpl_id}'), {})
+print(t.get('packer_file', ''))
+" 2>/dev/null
+}
+
+template_description_by_id() {
+  local tmpl_id="$1"
+  python3 -c "
+import yaml, sys
+with open('${TEMPLATE_REGISTRY}') as f:
+    reg = yaml.safe_load(f)
+t = reg.get('templates', {}).get(int('${tmpl_id}'), {})
+print(t.get('description', ''))
+" 2>/dev/null
+}
+
+# Check and build missing templates
+check_and_build_templates() {
+  local tf_dir="$1"
+  local node="${2:-pve01}"
+
+  step "PHASE 1: Template Verification"
+
+  local required_ids
+  required_ids=$(get_required_template_ids "$tf_dir")
+
+  if [[ -z "$required_ids" ]]; then
+    warn "Could not detect required templates from main.tf"
+    return 0
+  fi
+
+  info "Checking Proxmox for existing templates..."
+  local existing_ids
+  existing_ids=$(proxmox_get_templates "$node")
+
+  local missing_ids=()
+  local all_present=true
+
+  for tmpl_id in $required_ids; do
+    local tmpl_name
+    tmpl_name=$(template_name_by_id "$tmpl_id")
+    if echo "$existing_ids" | grep -qw "$tmpl_id"; then
+      ok "Template ${tmpl_id} (${tmpl_name}) — present on ${node}"
+    else
+      fail "Template ${tmpl_id} (${tmpl_name}) — MISSING"
+      missing_ids+=("$tmpl_id")
+      all_present=false
+    fi
+  done
+
+  if $all_present; then
+    ok "All required templates present"
+    return 0
+  fi
+
+  # Build missing templates
+  echo ""
+  echo -e "  ${YELLOW}${BOLD}Missing templates need to be built with Packer.${RESET}"
+  echo -e "  ${YELLOW}This is a one-time operation per template.${RESET}"
+  echo ""
+
+  for tmpl_id in "${missing_ids[@]}"; do
+    local packer_file tmpl_name tmpl_desc
+    packer_file=$(template_packer_file_by_id "$tmpl_id")
+    tmpl_name=$(template_name_by_id "$tmpl_id")
+    tmpl_desc=$(template_description_by_id "$tmpl_id")
+
+    if [[ -z "$packer_file" ]]; then
+      die "No Packer file registered for template ID ${tmpl_id}. Update packer/template-registry.yaml."
+    fi
+
+    local packer_path="${PACKER_DIR}/templates/${packer_file}"
+    if [[ ! -f "$packer_path" ]]; then
+      die "Packer template not found: ${packer_path}"
+    fi
+
+    echo -e "  ${MAGENTA}Building: ${tmpl_name} (ID ${tmpl_id})${RESET}"
+    echo -e "  ${DIM}${tmpl_desc}${RESET}"
+    echo -e "  ${DIM}File: ${packer_file}${RESET}"
+    echo ""
+
+    if [[ "$FORCE" != "true" ]]; then
+      echo -n -e "  ${YELLOW}Build this template now? [y/N]: ${RESET}"
+      read -r confirm
+      if [[ "${confirm,,}" != "y" ]]; then
+        die "Cannot deploy without template ${tmpl_id} (${tmpl_name}). Build it first or use --skip-templates."
+      fi
+    fi
+
+    info "Running: packer init + build (this may take 15-45 minutes)..."
+
+    # Derive the source name from the packer file for -only filter
+    # Convention: source "proxmox-iso" "<name>" where <name> matches filename stem
+    local source_name
+    source_name=$(grep -oP 'source\s+"proxmox-iso"\s+"\K[^"]+' "${PACKER_DIR}/templates/${packer_file}" 2>/dev/null || true)
+
+    # Build var-file args
+    local var_args=""
+    if [[ -f "${PACKER_DIR}/variables.pkrvars.hcl" ]]; then
+      var_args="-var-file=variables.pkrvars.hcl"
+    fi
+
+    (
+      cd "${PACKER_DIR}/templates"
+      packer init .
+
+      if [[ -n "$source_name" ]]; then
+        # Build from templates/ dir (includes symlinked packer.pkr.hcl for shared vars)
+        # -only filter selects the specific template source
+        # shellcheck disable=SC2086
+        packer build -only="proxmox-iso.${source_name}" ${var_args} .
+      else
+        # Fallback: build the specific file directly
+        # shellcheck disable=SC2086
+        packer build ${var_args} "${packer_file}"
+      fi
+    )
+
+    if [[ $? -eq 0 ]]; then
+      ok "Template ${tmpl_name} built successfully"
+    else
+      die "Packer build failed for ${tmpl_name}. Check output above."
+    fi
+  done
+
+  ok "All missing templates built"
+}
+
+show_template_status() {
+  banner
+  load_env
+
+  step "Proxmox Template Status"
+  proxmox_check_connectivity
+
+  local node="pve01"
+  info "Querying templates on ${node}..."
+
+  local existing_ids
+  existing_ids=$(proxmox_get_templates "$node")
+
+  echo ""
+  echo -e "  ${BOLD}ID    Name                    Status${RESET}"
+  echo -e "  ${DIM}────  ──────────────────────  ──────${RESET}"
+
+  python3 -c "
+import yaml
+with open('${TEMPLATE_REGISTRY}') as f:
+    reg = yaml.safe_load(f)
+existing = set('''${existing_ids}'''.split())
+for tid, t in sorted(reg.get('templates', {}).items()):
+    status = '✅ present' if str(tid) in existing else '❌ missing'
+    print(f'  {tid:<6}{t[\"name\"]:<24}{status}')
+"
+  echo ""
+}
+
+# ── Terraform operations ─────────────────────────────────────────────────────
+
+run_terraform() {
+  local tf_dir="$1"
+  local workspace="$2"
+  local action="$3"  # deploy | destroy | plan
+
+  step "PHASE 2: Terraform ${action^}"
+
+  cd "$tf_dir"
+
+  info "Initializing Terraform..."
+  terraform init -input=false -upgrade 2>&1 | tail -3
+
+  # Create or select workspace
+  terraform workspace new "$workspace" 2>/dev/null || \
+    terraform workspace select "$workspace" 2>/dev/null || true
+  ok "Workspace: ${workspace}"
+
+  # Build var overrides for slot
+  local var_args="-var-file=terraform.tfvars -var=slot_number=${SLOT}"
+
+  if [[ "$action" == "destroy" ]]; then
+    echo ""
+    if [[ "$FORCE" != "true" ]]; then
+      echo -e "  ${RED}${BOLD}⚠️  DESTRUCTIVE: This will destroy all VMs in slot ${SLOT}${RESET}"
+      echo -n -e "  ${YELLOW}Type 'destroy' to confirm: ${RESET}"
+      read -r confirm
+      [[ "$confirm" != "destroy" ]] && die "Destruction cancelled"
+    fi
+
+    info "Running terraform destroy..."
+    # shellcheck disable=SC2086
+    terraform destroy ${var_args} -auto-approve
+    ok "Scenario destroyed in slot ${SLOT}"
+
+    # Clean up workspace
+    terraform workspace select default 2>/dev/null || true
+    terraform workspace delete "$workspace" 2>/dev/null || true
+    ok "Workspace ${workspace} cleaned up"
+    return 0
+  fi
+
+  if [[ "$action" == "plan" ]]; then
+    info "Running terraform plan..."
+    # shellcheck disable=SC2086
+    terraform plan ${var_args} -input=false
+    ok "Plan complete — review above"
+    return 0
+  fi
+
+  # Deploy
+  info "Running terraform plan..."
+  # shellcheck disable=SC2086
+  terraform plan ${var_args} -input=false -out=tfplan 2>&1
+
+  if [[ "$FORCE" != "true" ]]; then
+    echo ""
+    echo -n -e "  ${YELLOW}Apply this plan? [y/N]: ${RESET}"
+    read -r confirm
+    if [[ "${confirm,,}" != "y" ]]; then
+      rm -f tfplan
+      die "Deployment cancelled"
+    fi
+  fi
+
+  info "Applying..."
+  terraform apply tfplan
+  rm -f tfplan
+
+  ok "Terraform apply complete — VMs provisioned"
+}
+
+# ── Ansible operations ────────────────────────────────────────────────────────
+
+run_ansible() {
+  local scenario_dir="$1"
+  local scen_name="$2"
+  local tf_dir="${scenario_dir}/terraform"
+
+  step "PHASE 3: Ansible Configuration"
+
+  # Look for scenario-specific playbook
+  local playbook=""
+  if [[ -d "${scenario_dir}/ansible/playbooks" ]]; then
+    playbook=$(find "${scenario_dir}/ansible/playbooks" -name '*.yml' -type f | head -1)
+  fi
+
+  # Fallback: check shared ansible playbooks
+  if [[ -z "$playbook" ]]; then
+    # Try to find a matching playbook by scenario name pattern
+    local short_name="${scen_name#SCEN-[0-9]*_}"
+    for candidate in "${SHARED_ANSIBLE}/playbooks/"*.yml; do
+      [[ ! -f "$candidate" ]] && continue
+      local base
+      base=$(basename "$candidate" .yml)
+      # Match common patterns: scada-setup for scada_modbus_recon, ad-setup for kerberoasting, etc.
+      if [[ "$short_name" == *"$base"* ]] || [[ "$base" == *"${short_name%%_*}"* ]]; then
+        playbook="$candidate"
+        break
+      fi
+    done
+  fi
+
+  if [[ -z "$playbook" || ! -f "$playbook" ]]; then
+    warn "No Ansible playbook found for this scenario"
+    warn "VMs are provisioned but not configured"
+    info "To configure manually, create: ${scenario_dir}/ansible/playbooks/<name>.yml"
+    return 0
+  fi
+
+  info "Playbook: ${playbook}"
+
+  # Build dynamic inventory from Terraform outputs
+  local inventory_file="/tmp/build_inventory_slot${SLOT}.ini"
+
+  cd "$tf_dir"
+  local tf_outputs
+  tf_outputs=$(terraform output -json 2>/dev/null || echo "{}")
+
+  if [[ "$tf_outputs" == "{}" ]]; then
+    warn "No Terraform outputs available — cannot generate inventory"
+    warn "Run Ansible manually with a static inventory"
+    return 0
+  fi
+
+  # Generate inventory from terraform outputs
+  info "Generating inventory from Terraform outputs..."
+  python3 - "$tf_outputs" "$inventory_file" "$SLOT" "${scenario_dir}" <<'PYEOF'
+import json, sys
+
+outputs = json.loads(sys.argv[1])
+inv_file = sys.argv[2]
+slot = sys.argv[3]
+scenario_dir = sys.argv[4]
+
+access = outputs.get("access_sheet", {}).get("value", {})
+lines = ["# Auto-generated inventory for slot " + slot, ""]
+
+# Group hosts by role based on naming patterns
+groups = {
+    "attacker": [],
+    "victim": [],
+    "webapp": [],
+    "domain_controllers": [],
+    "workstations": [],
+    "scada": [],
+    "historian": [],
+}
+
+# Parse access sheet for IPs and credentials
+for key, val in access.items():
+    if not key.endswith("_ip"):
+        continue
+    host_prefix = key.replace("_ip", "")
+    ip = val
+    user_key = f"{host_prefix}_user"
+    pass_key = f"{host_prefix}_pass"
+    user = access.get(user_key, "ansible")
+    passwd = access.get(pass_key, "")
+
+    host_line = f"{ip} ansible_user={user}"
+    if passwd:
+        host_line += f" ansible_password={passwd}"
+    host_line += " ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+
+    # Classify into groups
+    if "attacker" in host_prefix or "kali" in host_prefix:
+        groups["attacker"].append(host_line)
+    elif "victim" in host_prefix:
+        groups["victim"].append(host_line)
+    elif "webapp" in host_prefix:
+        groups["webapp"].append(host_line)
+    elif "dc" in host_prefix:
+        groups["domain_controllers"].append(host_line)
+    elif "ws" in host_prefix or "workstation" in host_prefix:
+        groups["workstations"].append(host_line)
+    elif "plc" in host_prefix or "openplc" in host_prefix:
+        groups["scada"].append(host_line)
+    elif "historian" in host_prefix:
+        groups["historian"].append(host_line)
+    else:
+        groups["workstations"].append(host_line)
+
+# Write inventory
+for group, hosts in groups.items():
+    if hosts:
+        lines.append(f"[{group}]")
+        lines.extend(hosts)
+        lines.append("")
+
+# Add vars
+lines.append("[all:vars]")
+lines.append("ansible_ssh_private_key_file=~/.ssh/lab_key")
+lines.append(f"scenario_dir={scenario_dir}")
+lines.append(f"slot_number={slot}")
+lines.append("")
+
+with open(inv_file, "w") as f:
+    f.write("\n".join(lines))
+
+print(f"  → Inventory written: {inv_file}")
+PYEOF
+
+  if [[ ! -f "$inventory_file" ]]; then
+    warn "Inventory generation failed"
+    return 0
+  fi
+
+  # Build role path: scenario-specific roles + shared roles
+  local roles_path="${scenario_dir}/ansible/roles:${SHARED_ANSIBLE}/roles"
+
+  info "Running Ansible playbook..."
+  ANSIBLE_ROLES_PATH="$roles_path" \
+  ANSIBLE_HOST_KEY_CHECKING=False \
+    ansible-playbook \
+      -i "$inventory_file" \
+      "$playbook" \
+      --extra-vars "slot_number=${SLOT}" \
+      -v
+
+  rm -f "$inventory_file"
+  ok "Ansible configuration complete"
+}
+
+# ── Access sheet ──────────────────────────────────────────────────────────────
+
+print_access_sheet() {
+  local tf_dir="$1"
+  local scen_id="$2"
+  local scenario_dir="$3"
+
+  step "DEPLOYMENT COMPLETE"
+
+  cd "$tf_dir"
+  local access
+  access=$(terraform output -json access_sheet 2>/dev/null || echo "{}")
+
+  echo ""
+  echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${GREEN}║              ${BOLD}STUDENT ACCESS SHEET — SLOT ${SLOT}${RESET}${GREEN}                    ║${RESET}"
+  echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+
+  if [[ "$access" != "{}" ]]; then
+    echo "$access" | jq -r 'to_entries[] | "  \(.key): \(.value)"' 2>/dev/null
+  else
+    echo -e "  ${DIM}(No access sheet output defined in Terraform)${RESET}"
+  fi
+
+  echo ""
+  echo -e "  ${BOLD}Scenario Files:${RESET}"
+  echo -e "    ${CYAN}Objectives${RESET}:   ${scenario_dir}/docs/OBJECTIVES.md"
+  echo -e "    ${CYAN}Walkthrough${RESET}:  ${scenario_dir}/docs/WALKTHROUGH.md"
+  echo -e "    ${CYAN}Network Map${RESET}:  ${scenario_dir}/docs/NETWORK_MAP.md"
+  echo -e "    ${CYAN}Lesson Plan${RESET}:  ${scenario_dir}/curriculum/LESSON_PLAN.md"
+  echo -e "    ${CYAN}Quick Ref${RESET}:    ${scenario_dir}/curriculum/QUICK_REFERENCE.md"
+  echo ""
+  echo -e "${GREEN}${BOLD}✅ Scenario deployed and configured${RESET}"
+  echo ""
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Handle --list
+if $LIST_MODE; then
+  list_scenarios
+  exit 0
+fi
+
+# Handle --status
+if $STATUS_MODE; then
+  show_template_status
+  exit 0
+fi
+
+# Require scenario argument
+if [[ -z "$SCENARIO_INPUT" ]]; then
+  usage
+fi
+
+# Validate slot
+if [[ "$SLOT" -lt 1 || "$SLOT" -gt 20 ]]; then
+  die "Slot must be between 1 and 20 (got: ${SLOT})"
+fi
+
+banner
+
+# Load lab environment
+load_env
+
+# Check prereqs
+check_prereqs
+
+# Resolve scenario
+SCENARIO_DIR=""
+if ! SCENARIO_DIR=$(resolve_scenario "$SCENARIO_INPUT"); then
+  fail "Scenario not found: ${SCENARIO_INPUT}"
+  echo ""
+  echo -e "  ${DIM}Available scenarios:${RESET}"
+  for dir in "${SCENARIOS_DIR}"/SCEN-*/; do
+    [[ -d "$dir" ]] && echo -e "    $(basename "$dir")"
+  done
+  exit 1
+fi
+
+# Remove trailing slash
+SCENARIO_DIR="${SCENARIO_DIR%/}"
+SCEN_NAME="$(basename "$SCENARIO_DIR")"
+SCEN_ID="${SCEN_NAME%%_*}"
+TF_DIR="${SCENARIO_DIR}/terraform"
+WORKSPACE="slot-$(printf '%02d' "$SLOT")-${SCEN_NAME}"
+
+# Validate scenario has terraform
+if [[ ! -f "${TF_DIR}/main.tf" ]]; then
+  die "No Terraform config found at ${TF_DIR}/main.tf"
+fi
+
+# Print scenario info
+echo -e "  ${BOLD}Scenario${RESET}:  ${SCEN_ID} — ${SCEN_NAME#SCEN-[0-9]*_}"
+echo -e "  ${BOLD}Slot${RESET}:      ${SLOT}"
+echo -e "  ${BOLD}Action${RESET}:    $(if $DESTROY; then echo 'DESTROY'; elif $PLAN_ONLY; then echo 'PLAN'; elif $ANSIBLE_ONLY; then echo 'ANSIBLE ONLY'; elif $TERRAFORM_ONLY; then echo 'TERRAFORM ONLY'; else echo 'FULL DEPLOY'; fi)"
+echo -e "  ${BOLD}Directory${RESET}: ${SCENARIO_DIR}"
+
+# Check Proxmox connectivity
+proxmox_check_connectivity
+
+# ── Phase 1: Templates ───────────────────────────────────────────────────────
+
+if [[ "$SKIP_TEMPLATES" != "true" && "$ANSIBLE_ONLY" != "true" && "$DESTROY" != "true" ]]; then
+  check_and_build_templates "$TF_DIR"
+fi
+
+# ── Phase 2: Terraform ───────────────────────────────────────────────────────
+
+if [[ "$ANSIBLE_ONLY" != "true" ]]; then
+  if $DESTROY; then
+    run_terraform "$TF_DIR" "$WORKSPACE" "destroy"
+    echo ""
+    echo -e "${GREEN}${BOLD}✅ Scenario destroyed${RESET}"
+    exit 0
+  elif $PLAN_ONLY; then
+    run_terraform "$TF_DIR" "$WORKSPACE" "plan"
+    exit 0
+  else
+    run_terraform "$TF_DIR" "$WORKSPACE" "deploy"
+  fi
+fi
+
+# ── Phase 3: Ansible ─────────────────────────────────────────────────────────
+
+if [[ "$TERRAFORM_ONLY" != "true" && "$PLAN_ONLY" != "true" ]]; then
+  run_ansible "$SCENARIO_DIR" "$SCEN_NAME"
+fi
+
+# ── Done ──────────────────────────────────────────────────────────────────────
+
+if [[ "$PLAN_ONLY" != "true" ]]; then
+  print_access_sheet "$TF_DIR" "$SCEN_ID" "$SCENARIO_DIR"
+fi

@@ -1,0 +1,53 @@
+# packer/template-registry.yaml
+# Maps Proxmox template VM IDs to their Packer build files.
+# Used by scripts/build to auto-detect and build missing templates.
+
+templates:
+  101:
+    name: tpl-kali-2024
+    packer_file: kali-2024.pkr.hcl
+    description: "Kali Linux 2024.4 — Attacker platform"
+    build_time_min: 25
+    isos:
+      - kali-linux-2024.4-installer-amd64.iso
+
+  102:
+    name: tpl-ubuntu-2404
+    packer_file: ubuntu-2404.pkr.hcl
+    description: "Ubuntu Server 24.04.2 LTS"
+    build_time_min: 15
+    isos:
+      - ubuntu-24.04.2-live-server-amd64.iso
+
+  103:
+    name: tpl-debian-12
+    packer_file: debian-12.pkr.hcl
+    description: "Debian 12.9 Bookworm"
+    build_time_min: 12
+    isos:
+      - debian-12.9.0-amd64-netinst.iso
+
+  110:
+    name: tpl-win2022
+    packer_file: windows-server-2022.pkr.hcl
+    description: "Windows Server 2022 Eval"
+    build_time_min: 45
+    isos:
+      - en-us_windows_server_2022_updated_oct_2024_x64_dvd.iso
+      - virtio-win-0.1.262.iso
+
+  150:
+    name: tpl-openplc
+    packer_file: openplc.pkr.hcl
+    description: "Debian 12 + OpenPLC Runtime v3"
+    build_time_min: 18
+    isos:
+      - debian-12.9.0-amd64-netinst.iso
+
+  151:
+    name: tpl-ignition-dev
+    packer_file: ignition-dev.pkr.hcl
+    description: "Debian 12 + Ignition 8.1.44 Gateway"
+    build_time_min: 20
+    isos:
+      - debian-12.9.0-amd64-netinst.iso

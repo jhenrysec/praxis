@@ -1,0 +1,18 @@
+id: "SCEN-002"
+name: cred_access_kerberoasting
+display_name: "Credential Access — Kerberoasting"
+description: "Extract and crack Kerberos TGS tickets from service accounts with weak SPNs in an Active Directory environment. Students learn Kerberos authentication, SPN enumeration, ticket extraction, and offline cracking."
+difficulty: Intermediate
+estimated_hours: 3
+status: ready
+focus_areas:
+  - ad_windows
+  - red_team
+mitre_techniques:
+  - T1558.003  # Kerberoasting
+  - T1087.002  # Domain Account Discovery
+  - T1069.002  # Domain Groups Discovery
+  - T1110.002  # Password Cracking
+vm_count: 3
+total_cpu: 10
+total_memory_mb: 12288

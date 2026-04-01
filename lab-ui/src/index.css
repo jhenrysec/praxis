@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* ── Lab Theme Custom Properties ─────────────────────────────────────────── */
+
+:root {
+  --bg-base: #0a0c0f;
+  --bg-surface: #0d1017;
+  --bg-hover: #131820;
+  --border-default: #1e2228;
+  --border-active: #2d3139;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #4b5563;
+  --accent-green: #00e5a0;
+  --accent-blue: #6c8fff;
+  --accent-amber: #facc15;
+  --accent-red: #fb7185;
+  --accent-purple: #a78bfa;
+}
+
+/* ── Base Styles ─────────────────────────────────────────────────────────── */
+
+body {
+  font-family: "JetBrains Mono", monospace;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-active);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── Utility Classes ─────────────────────────────────────────────────────── */
+
+.label-mono {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.font-heading {
+  font-family: "Rajdhani", sans-serif;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes attack-path-dash {
+  to { stroke-dashoffset: -20; }
+}
+
+.animate-pulse-green {
+  animation: pulse-green 2s ease-in-out infinite;
+}
+
+.animate-attack-path {
+  stroke-dasharray: 8 12;
+  animation: attack-path-dash 1s linear infinite;
+}

@@ -39,12 +39,12 @@ Proxmox installation and configuration walkthrough.
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Proxmox VE | 8.3+ | Fully configured per setup guide |
+| Proxmox VE | 9.1+ | Fully configured per setup guide |
 | Node.js | 22 LTS | On your management workstation |
 | Claude Code | 2.1.59+ | Requires Claude Max or API key |
 | Terraform | 1.14+ | On management workstation |
 | Packer | 1.15+ | On management workstation |
-| Ansible Core | 2.17+ | On management workstation |
+| Ansible Core | 2.19+ | On management workstation |
 | Git | Any | For cloning and version control |
 
 ### Clone and Initialize
@@ -204,12 +204,12 @@ vuln-lab/
 
 ## Scenario Catalog
 
-| ID | Name | Difficulty | Duration | Focus |
-|---|---|---|---|---|
-| SCEN-001 | SCADA Modbus Recon & Manipulation | Beginner | 2h | ICS/OT |
-| SCEN-002 | Kerberoasting Credential Access | Intermediate | 3h | AD/Windows |
-| SCEN-003 | APT Lateral Movement | Advanced | 5h | AD/Windows |
-| SCEN-004 | IT→OT Pivot (Capstone) | Expert | 8h | Full chain |
+| ID | Name | Difficulty | Duration | VMs | Focus |
+|---|---|---|---|---|---|
+| SCEN-001 | SCADA Modbus Recon & Manipulation | Beginner | 2h | 3 | ICS/OT — Modbus TCP enumeration, register read/write |
+| SCEN-002 | Kerberoasting Credential Access | Intermediate | 3h | 3 | AD/Windows — SPN enumeration, TGS cracking |
+| SCEN-003 | APT Lateral Movement | Advanced | 4h | 4 | AD/Windows — credential dumping, pass-the-hash, DCSync |
+| SCEN-004 | ICS/OT Pivot: IT to OT Kill Chain | Expert | 5h | 6 | IT/OT convergence — AD → eng-ws pivot → Modbus manipulation |
 
 Add new scenarios at any time:
 ```
@@ -379,8 +379,8 @@ For complete command examples, see [COMMAND_EXAMPLES.md](COMMAND_EXAMPLES.md).
 
 | Framework | Techniques Covered |
 |---|---|
-| ATT&CK Enterprise | T1558.003, T1021.002, T1550.002, T1566, T1078.003 |
-| ATT&CK for ICS | T0836, T0846, T0855, T0819, T0842, T0817 |
+| ATT&CK Enterprise | T1558.003, T1087.002, T1069.002, T1110.002, T1021.002, T1021.004, T1003.001, T1003.003, T1059.001, T1574.001 |
+| ATT&CK for ICS | T0836, T0846, T0855, T0842, T0812 |
 
 Coverage matrix: [docs/security/ATT&CK_COVERAGE.md](docs/security/ATT&CK_COVERAGE.md)
 

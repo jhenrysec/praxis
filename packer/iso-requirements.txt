@@ -1,0 +1,21 @@
+# ISO Requirements for Phase 4 Packer Templates
+# Usage: ./scripts/iso-manage.sh ensure-list packer/iso-requirements.txt
+#
+# Format: <distro> <version>
+# Distro names must match keys in scripts/iso-sources.yaml
+
+# Kali Linux — attacker platform (tpl-kali-2024)
+kali 2024.4
+
+# Ubuntu Server — general purpose server (tpl-ubuntu-2404)
+ubuntu-server 24.04.2
+
+# Debian — lightweight server, also base for OpenPLC and Ignition (tpl-debian-12, tpl-openplc, tpl-ignition-dev)
+debian 12.9.0
+
+# Windows Server 2022 Evaluation — AD, workstations (tpl-win2022)
+# MANUAL DOWNLOAD: microsoft.com/en-us/evalcenter/evaluate-windows-server-2022
+windows-server-2022
+
+# VirtIO Windows Drivers — required for all Windows Packer builds
+virtio-win

@@ -1,0 +1,122 @@
+# Scenario Manifest Template
+# Generated automatically by INTEL_AGENT after scenario build completes.
+# Stored at: scenarios/<scenario_name>/MANIFEST.yaml
+#
+# Purpose: Enables deterministic redeployment of a scenario without
+# re-running the full intel pipeline. Contains every artifact, template,
+# ISO, and role required to rebuild the scenario from scratch.
+#
+# Usage:
+#   /orchestrate deploy from manifest scenarios/<name>/MANIFEST.yaml
+#   ./scripts/deploy.sh --from-manifest scenarios/<name>/MANIFEST.yaml
+
+# ── SCENARIO IDENTITY ────────────────────────────────────────────────────────
+scenario:
+  id: ""                        # SCEN-XXX
+  name: ""                      # snake_case scenario name
+  display_name: ""              # Human readable name
+  version: "1.0"                # Increment on enrichment
+  created: ""                   # YYYY-MM-DD
+  last_modified: ""             # YYYY-MM-DD
+  intel_brief: ""               # path: intel_briefs/<filename>.yaml
+  source_title: ""              # Original threat intel source
+  source_url: ""                # URL or "operator-provided"
+
+# ── REQUIRED INFRASTRUCTURE ──────────────────────────────────────────────────
+# Everything needed to deploy this scenario. If any item is missing,
+# the scenario cannot be deployed.
+
+templates_required:
+  # List every Packer template this scenario needs
+  - name: ""                    # tpl-kali-2024
+    proxmox_id: 0               # Template VM ID on Proxmox
+    packer_file: ""             # packer/templates/<file>.pkr.hcl
+    isos_needed:                # ISOs required to build this template
+      - ""                      # filename from iso-manifest.yaml
+
+isos_required:
+  # Consolidated list of all ISOs (for quick check)
+  - filename: ""
+    storage: "local"
+    auto_download: true         # Can be fetched automatically?
+
+network_bridges:
+  # Bridges this scenario uses
+  - bridge: ""                  # vmbr1, vmbr2, vmbr3
+    zone: ""                    # red, blue, ot
+    ip_range: ""                # 10.10.1.0/24
+
+# ── BUILD ARTIFACTS ──────────────────────────────────────────────────────────
+# Files that constitute the complete deployable scenario
+
+terraform:
+  scenario_dir: ""              # terraform/scenarios/<name>/
+  files:
+    - ""                        # main.tf
+    - ""                        # variables.tf
+    - ""                        # outputs.tf
+    - ""                        # terraform.tfvars
+  modules_used:
+    - ""                        # modules/vm_clone
+
+ansible:
+  roles:
+    # Every Ansible role this scenario requires
+    - name: ""                  # role name
+      path: ""                  # ansible/roles/<name>/ or scenarios/<name>/ansible/roles/<name>/
+      scope: ""                 # shared (in ansible/roles/) or scenario-specific
+  playbooks:
+    - ""                        # path to playbook files
+
+dressing_assets:
+  # Every generated content file
+  - id: ""                      # DRESS-XXX
+    filename: ""
+    path: ""                    # scenarios/<name>/ansible/roles/<task>/files/<filename>
+    format: ""                  # docx, xlsx, pdf, txt
+    generated_by: ""            # CONTENT_AGENT or manual
+
+ioc_artifacts:
+  # Pre-staged forensic artifacts
+  - id: ""                      # IOC-XXX
+    filename: ""
+    path: ""                    # scenarios/<name>/ansible/roles/<task>/files/<filename>
+    type: ""                    # pcap, evtx, filesystem, registry
+
+# ── CURRICULUM MATERIALS ─────────────────────────────────────────────────────
+curriculum:
+  lesson_plan: ""               # docs/scenarios/<name>/curriculum/LESSON_PLAN.md
+  slides_content: ""            # docs/scenarios/<name>/curriculum/SLIDES_CONTENT.md
+  quick_reference: ""           # docs/scenarios/<name>/curriculum/QUICK_REFERENCE.md
+  incident_report: ""           # docs/scenarios/<name>/curriculum/INCIDENT_REPORT_TEMPLATE.md
+  detection_exercise: ""        # docs/scenarios/<name>/curriculum/DETECTION_EXERCISE.md
+
+# ── DOCUMENTATION ────────────────────────────────────────────────────────────
+docs:
+  scenario_card: ""             # docs/scenarios/<name>/SCENARIO_CARD.md
+  objectives: ""                # docs/scenarios/<name>/OBJECTIVES.md
+  walkthrough: ""               # docs/scenarios/<name>/WALKTHROUGH.md
+  network_map: ""               # docs/scenarios/<name>/NETWORK_MAP.md
+
+# ── RESOURCE REQUIREMENTS ────────────────────────────────────────────────────
+resources:
+  total_cpu_cores: 0
+  total_memory_mb: 0
+  total_disk_gb: 0
+  vm_count: 0
+  estimated_deploy_time_min: 0  # Terraform + Ansible combined
+
+# ── STORAGE ESTIMATE ─────────────────────────────────────────────────────────
+storage:
+  template_storage_gb: 0        # Shared with other scenarios
+  scenario_storage_gb: 0        # Unique to this scenario (linked clones)
+  marginal_storage_gb: 0        # What this scenario adds if templates already exist
+  dressing_files_mb: 0          # Size of all dressing + artifact files
+
+# ── COMPATIBILITY ────────────────────────────────────────────────────────────
+compatibility:
+  proxmox_min_version: "9.1"
+  terraform_min_version: "1.14.0"
+  packer_min_version: "1.15.0"
+  ansible_min_version: "2.19.0"
+  bpg_provider_min_version: "0.99.0"

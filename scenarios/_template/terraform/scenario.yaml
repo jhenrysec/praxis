@@ -1,0 +1,16 @@
+# terraform/scenarios/_template/scenario.yaml
+# Metadata file read by deploy.sh for the scenario selection menu.
+# Copy and customize for each scenario.
+
+name: _template
+display_name: "Scenario Template"
+description: "Template for creating new scenarios. Do not deploy directly."
+difficulty: N/A
+estimated_hours: 0
+status: template
+focus_areas:
+  - none
+mitre_techniques: []
+vm_count: 1
+total_cpu: 4
+total_memory_mb: 4096

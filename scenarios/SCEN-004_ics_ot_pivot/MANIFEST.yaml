@@ -1,0 +1,142 @@
+# Scenario Manifest — SCEN-004: ICS/OT Pivot — IT to OT Kill Chain
+# Generated: 2026-03-31
+
+scenario:
+  id: "SCEN-004"
+  name: "ics_ot_pivot"
+  display_name: "ICS/OT Pivot: IT to OT Kill Chain"
+  version: "1.0"
+  created: "2026-03-31"
+  last_modified: "2026-03-31"
+  intel_brief: ""
+  source_title: "Baseline IT/OT convergence attack training scenario"
+  source_url: "operator-provided"
+
+templates_required:
+  - name: tpl-kali-2024
+    proxmox_id: 101
+    packer_file: "packer/templates/kali-2024.pkr.hcl"
+    isos_needed:
+      - "kali-linux-2024.4-installer-amd64.iso"
+  - name: tpl-win2022
+    proxmox_id: 110
+    packer_file: "packer/templates/windows-server-2022.pkr.hcl"
+    isos_needed:
+      - "SERVER_EVAL_x64FRE_en-us.iso"
+      - "virtio-win.iso"
+  - name: tpl-debian-12
+    proxmox_id: 103
+    packer_file: "packer/templates/debian-12.pkr.hcl"
+    isos_needed:
+      - "debian-12.9.0-amd64-netinst.iso"
+  - name: tpl-openplc
+    proxmox_id: 150
+    packer_file: "packer/templates/openplc.pkr.hcl"
+    isos_needed:
+      - "debian-12.9.0-amd64-netinst.iso"
+
+isos_required:
+  - filename: "kali-linux-2024.4-installer-amd64.iso"
+    storage: "local"
+    auto_download: true
+  - filename: "SERVER_EVAL_x64FRE_en-us.iso"
+    storage: "local"
+    auto_download: false
+  - filename: "virtio-win.iso"
+    storage: "local"
+    auto_download: true
+  - filename: "debian-12.9.0-amd64-netinst.iso"
+    storage: "local"
+    auto_download: true
+
+network_bridges:
+  - bridge: "vmbr1"
+    zone: "red"
+    ip_range: "10.10.(2N-1).0/24"
+  - bridge: "vmbr2"
+    zone: "blue"
+    ip_range: "10.10.(2N).0/24"
+  - bridge: "vmbr3"
+    zone: "ot"
+    ip_range: "192.168.(100+N).0/24"
+
+terraform:
+  scenario_dir: "terraform/scenarios/ics_ot_pivot/"
+  files:
+    - "main.tf"
+    - "variables.tf"
+    - "terraform.tfvars"
+    - "scenario.yaml"
+  modules_used:
+    - "modules/vm_clone"
+    - "modules/network_segment"
+    - "modules/scada_node"
+
+ansible:
+  roles:
+    - name: "common-linux"
+      path: "ansible/roles/common-linux/"
+      scope: "shared"
+    - name: "common-windows"
+      path: "ansible/roles/common-windows/"
+      scope: "shared"
+    - name: "ad-domain-controller"
+      path: "ansible/roles/ad-domain-controller/"
+      scope: "shared"
+    - name: "vulnerable-services"
+      path: "ansible/roles/vulnerable-services/"
+      scope: "shared"
+    - name: "openplc-configure"
+      path: "ansible/roles/openplc-configure/"
+      scope: "shared"
+    - name: "grficsv2-deploy"
+      path: "ansible/roles/grficsv2-deploy/"
+      scope: "shared"
+    - name: "influxdb-setup"
+      path: "ansible/roles/influxdb-setup/"
+      scope: "shared"
+    - name: "grafana-scada"
+      path: "ansible/roles/grafana-scada/"
+      scope: "shared"
+    - name: "modbus-historian-bridge"
+      path: "ansible/roles/modbus-historian-bridge/"
+      scope: "shared"
+  playbooks:
+    - "ansible/playbooks/ad-setup.yml"
+    - "ansible/playbooks/scada-full.yml"
+
+dressing_assets: []
+ioc_artifacts: []
+
+curriculum:
+  lesson_plan: ""
+  slides_content: ""
+  quick_reference: ""
+  incident_report: ""
+  detection_exercise: ""
+
+docs:
+  scenario_card: "docs/scenarios/ics_ot_pivot/SCENARIO_CARD.md"
+  objectives: "docs/scenarios/ics_ot_pivot/OBJECTIVES.md"
+  walkthrough: "docs/scenarios/ics_ot_pivot/WALKTHROUGH.md"
+  network_map: "docs/scenarios/ics_ot_pivot/NETWORK_MAP.md"
+
+resources:
+  total_cpu_cores: 16
+  total_memory_mb: 18432
+  total_disk_gb: 340
+  vm_count: 6
+  estimated_deploy_time_min: 30
+
+storage:
+  template_storage_gb: 45
+  scenario_storage_gb: 25
+  marginal_storage_gb: 10
+  dressing_files_mb: 0
+
+compatibility:
+  proxmox_min_version: "9.1"
+  terraform_min_version: "1.14.0"
+  packer_min_version: "1.15.0"
+  ansible_min_version: "2.19.0"
+  bpg_provider_min_version: "0.99.0"

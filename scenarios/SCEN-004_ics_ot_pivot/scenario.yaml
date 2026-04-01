@@ -1,0 +1,24 @@
+id: "SCEN-004"
+name: ics_ot_pivot
+display_name: "ICS/OT Pivot: IT to OT Kill Chain"
+description: "Full IT-to-OT kill chain: compromise Active Directory, pivot through a dual-homed engineering workstation into the OT zone, then manipulate industrial control processes. Exercises IT/OT convergence attacks spanning all three network zones."
+difficulty: Expert
+estimated_hours: 5
+status: ready
+focus_areas:
+  - ics_ot
+  - ad_windows
+  - red_team
+  - it_ot_convergence
+mitre_techniques:
+  - T1021.002  # SMB/Windows Admin Shares
+  - T1003.001  # LSASS Memory
+  - T1558.003  # Kerberoasting
+  - T1021.004  # SSH
+  - T0855      # Unauthorized Command Message (Modbus write)
+  - T0836      # Modify Parameter (setpoint tampering)
+  - T0846      # Remote System Discovery (OT recon)
+  - T0842      # Network Sniffing (OT traffic)
+vm_count: 6
+total_cpu: 16
+total_memory_mb: 18432

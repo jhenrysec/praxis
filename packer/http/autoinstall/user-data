@@ -1,0 +1,59 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  network:
+    network:
+      version: 2
+      ethernets:
+        id0:
+          match:
+            driver: virtio_net
+          dhcp4: true
+
+  storage:
+    layout:
+      name: direct
+
+  identity:
+    hostname: ubuntu-template
+    username: labuser
+    # Password: labuser (changed by Ansible post-deploy)
+    # Generated with: mkpasswd --method=SHA-512
+    password: "$6$rounds=100000$pxzYjnKf$sArqtcAHJmWHzwflhSZtRYEboIeAp8M1lI9cluHLzUuEa2CHRmSZGQdvmr/O39q24f7PUf4YuM30NjGKnuufL1"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  packages:
+    - openssh-server
+    - sudo
+    - python3
+    - curl
+    - wget
+    - ca-certificates
+    - gnupg
+    - qemu-guest-agent
+    - cloud-init
+    - cloud-initramfs-growroot
+
+  user-data:
+    disable_root: true
+    users:
+      - name: labuser
+        groups: [adm, sudo]
+        lock_passwd: false
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+
+  late-commands:
+    - curtin in-target -- systemctl enable qemu-guest-agent
+    - curtin in-target -- systemctl enable ssh
+
+  updates: security
+  shutdown: reboot

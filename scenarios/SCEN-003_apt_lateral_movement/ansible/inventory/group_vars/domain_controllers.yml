@@ -1,0 +1,31 @@
+---
+# SCEN-003 — Domain Controller group vars
+# AD configuration for APT Lateral Movement scenario
+
+ad_domain_name: "lab.local"
+ad_netbios_name: "LAB"
+ad_dc_ip: "10.10.4.20"
+
+# Domain users
+ad_users:
+  - name: "John Smith"
+    username: "jsmith"
+    password: "Password123"
+    ou: "OU=Lab Users,DC=lab,DC=local"
+    groups:
+      - "Domain Users"
+  - name: "Ana Garcia"
+    username: "agarcia"
+    password: "Welcome2024!"
+    ou: "OU=Lab Users,DC=lab,DC=local"
+    groups:
+      - "Domain Users"
+      - "Domain Admins"
+
+# Intentional vulnerabilities — Kerberoasting
+vuln_kerberoast_enabled: true
+vuln_kerberoast_accounts:
+  - username: "svc_sql"
+    password: "Summer2024!"
+    spn: "MSSQLSvc/dc01.lab.local:1433"
+    ou: "OU=Service Accounts,DC=lab,DC=local"

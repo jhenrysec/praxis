@@ -11,13 +11,21 @@ interface VncViewerProps {
   clipViewport?: boolean;
 }
 
-/** Validates that a WebSocket URL points to the same origin or a relative path. */
+/**
+ * Validates that a WebSocket URL points to the same origin, a relative path,
+ * or the Proxmox host (whose VNC WebSocket URL is returned by the backend).
+ */
 function isAllowedWsUrl(url: string): boolean {
   // Relative paths (e.g. /novnc-proxy/...) are always safe
   if (url.startsWith('/')) return true;
   try {
     const parsed = new URL(url);
-    return parsed.host === window.location.host;
+    // Same-origin is always allowed
+    if (parsed.host === window.location.host) return true;
+    // Allow the Proxmox host — the backend returns direct wss:// URLs to Proxmox
+    // for VNC proxy. The port 8006 is the Proxmox API port.
+    if (parsed.port === '8006' && parsed.pathname.includes('/api2/json/nodes/')) return true;
+    return false;
   } catch {
     return false;
   }

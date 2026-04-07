@@ -12,9 +12,12 @@
     Set-Item -Path WSMan:\localhost\Service\Auth\Basic -Value $true
     Set-Item -Path WSMan:\localhost\MaxEnvelopeSizekb -Value {{ winrm_max_envelope_kb }}
 
-- name: "[WIN-COMMON] Set PowerShell execution policy"
-  ansible.windows.win_shell: |
-    Set-ExecutionPolicy RemoteSigned -Force
+- name: "[WIN-COMMON] Set PowerShell execution policy via registry"
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell
+    name: ExecutionPolicy
+    data: RemoteSigned
+    type: string
 
 - name: "[WIN-COMMON] Enable RDP"
   ansible.windows.win_regedit:

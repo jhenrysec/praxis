@@ -22,9 +22,8 @@
     domain_mode: "{{ ad_domain_functional_level }}"
     forest_mode: "{{ ad_forest_functional_level }}"
     install_dns: true
-    state: domain_controller
+    reboot: true
   register: ad_promotion
-  notify: reboot_after_promotion
 
 - name: "[AD-DC] Flush handlers — reboot after promotion"
   ansible.builtin.meta: flush_handlers
@@ -40,7 +39,8 @@
 
 - name: "[AD-DC] Configure DNS forwarders"
   ansible.windows.win_shell: |
-    Set-DnsServerForwarder -IPAddress @({{ ad_dns_forwarders | map('regex_replace', '^(.*)$', '\"\\1\"') | join(',') }}) -ErrorAction SilentlyContinue
+    $forwarders = @({% for ip in ad_dns_forwarders %}"{{ ip }}"{% if not loop.last %},{% endif %}{% endfor %})
+    Set-DnsServerForwarder -IPAddress $forwarders -ErrorAction SilentlyContinue
 
 - name: "[AD-DC] Create lab OU structure"
   microsoft.ad.ou:

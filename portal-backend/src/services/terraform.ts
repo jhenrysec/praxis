@@ -12,6 +12,37 @@ const REPO_ROOT = process.env.REPO_ROOT || '/opt/vuln-lab';
 export type OutputCallback = (line: string) => void;
 
 class TerraformService {
+  /**
+   * Resolve a scenario ID to its terraform directory.
+   * Accepts either format: "SCEN-005", "browser_exploit_cve_2026_2441",
+   * or the full dir name "SCEN-005_browser_exploit_cve_2026_2441".
+   */
+  private resolveScenarioDir(scenarioId: string): string {
+    // Try unified structure first: scenarios/SCEN-XXX_name/terraform/
+    const scenariosRoot = path.join(REPO_ROOT, 'scenarios');
+    if (fs.existsSync(scenariosRoot)) {
+      const entries = fs.readdirSync(scenariosRoot, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
+        // Match by exact name, prefix (SCEN-005), or suffix (_browser_exploit_...)
+        if (
+          entry.name === scenarioId ||
+          entry.name.startsWith(`${scenarioId}_`) ||
+          entry.name.endsWith(`_${scenarioId}`)
+        ) {
+          const tfDir = path.join(scenariosRoot, entry.name, 'terraform');
+          if (fs.existsSync(tfDir)) return tfDir;
+        }
+      }
+    }
+
+    // Fall back to backward-compat symlinks: terraform/scenarios/name/
+    const symlinkDir = path.join(REPO_ROOT, 'terraform/scenarios', scenarioId);
+    if (fs.existsSync(symlinkDir)) return symlinkDir;
+
+    throw new Error(`Scenario directory not found for: ${scenarioId}`);
+  }
+
   /** Deploy a scenario to a specific slot. */
   async deploy(
     slotNumber: number,
@@ -19,7 +50,7 @@ class TerraformService {
     onOutput: OutputCallback,
   ): Promise<void> {
     const workspace = `student-slot-${String(slotNumber).padStart(2, '0')}`;
-    const scenarioDir = path.join(REPO_ROOT, 'terraform/scenarios', scenarioId);
+    const scenarioDir = this.resolveScenarioDir(scenarioId);
 
     // Create or select workspace
     try {
@@ -45,7 +76,7 @@ class TerraformService {
     onOutput: OutputCallback,
   ): Promise<void> {
     const workspace = `student-slot-${String(slotNumber).padStart(2, '0')}`;
-    const scenarioDir = path.join(REPO_ROOT, 'terraform/scenarios', scenarioId);
+    const scenarioDir = this.resolveScenarioDir(scenarioId);
 
     await this.exec(['workspace', 'select', workspace], scenarioDir, onOutput);
 

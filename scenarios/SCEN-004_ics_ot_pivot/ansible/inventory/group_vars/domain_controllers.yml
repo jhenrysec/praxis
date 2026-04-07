@@ -1,0 +1,33 @@
+---
+# SCEN-004 — Domain Controller group vars
+# AD configuration for ICS/OT Pivot scenario
+
+ad_domain_name: "lab.local"
+ad_netbios_name: "LAB"
+ad_dc_ip: "10.10.6.20"
+
+# Domain users
+ad_users:
+  - name: "John Smith"
+    username: "jsmith"
+    password: "Password123"
+    ou: "OU=Lab Users,DC=lab,DC=local"
+    groups:
+      - "Domain Users"
+  - name: "Engineering Admin"
+    username: "eng_admin"
+    password: "Eng1neer2024!"
+    ou: "OU=Lab Users,DC=lab,DC=local"
+    groups:
+      - "Domain Users"
+      - "Domain Admins"
+
+# Intentional vulnerabilities — Kerberoasting + WDigest
+vuln_kerberoast_enabled: true
+vuln_kerberoast_accounts:
+  - username: "svc_scada"
+    password: "Scada$vc2024"
+    spn: "SCADA/historian.lab.local"
+    ou: "OU=Service Accounts,DC=lab,DC=local"
+
+vuln_wdigest_enabled: true

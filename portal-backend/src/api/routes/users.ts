@@ -169,13 +169,23 @@ usersRouter.patch('/:id', validate(updateUserSchema), async (req, res, next) => 
       if (slotHolder) throw new ConflictError(`Slot ${updates.lab_slot} is already assigned`);
     }
 
+    // Explicit column whitelist — prevents SQL injection via dynamic key names
+    const ALLOWED_COLUMNS: Record<string, string> = {
+      role: 'role',
+      status: 'status',
+      lab_slot: 'lab_slot',
+      full_name: 'full_name',
+      student_id: 'student_id',
+    };
+
     const setClauses: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
     for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        setClauses.push(`${key} = $${paramIdx++}`);
+      const column = ALLOWED_COLUMNS[key];
+      if (value !== undefined && column) {
+        setClauses.push(`${column} = $${paramIdx++}`);
         params.push(value);
       }
     }

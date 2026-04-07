@@ -5,6 +5,7 @@ import { deployScenario, destroySlot, resetSlot, connectDeployStream } from '@/a
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useSlotStore } from '@/stores/slotStore';
 import { useUIStore } from '@/stores/uiStore';
+import { ActiveScenariosModal } from './ActiveScenariosModal';
 
 interface DeployControlsProps {
   scenario: Scenario;
@@ -13,12 +14,18 @@ interface DeployControlsProps {
 
 export function DeployControls({ scenario, slot }: DeployControlsProps) {
   const [loading, setLoading] = useState<'deploy' | 'destroy' | 'reset' | null>(null);
+  const [showActiveModal, setShowActiveModal] = useState(false);
   const { addLine, clear, setStreaming } = useTerminalStore();
-  const { updateSlotStatus } = useSlotStore();
+  const { slots, updateSlotStatus } = useSlotStore();
   const { setTerminalOpen } = useUIStore();
 
-  const handleDeploy = async () => {
-    if (slot.status !== 'empty') return;
+  const activeSlots = slots.filter(
+    (s) =>
+      s.slot_number !== slot.slot_number &&
+      (s.status === 'running' || s.status === 'deploying'),
+  );
+
+  const executeDeploy = async () => {
     setLoading('deploy');
     clear();
     setTerminalOpen(true);
@@ -44,7 +51,6 @@ export function DeployControls({ scenario, slot }: DeployControlsProps) {
           },
         );
 
-        // Clean up if component unmounts
         return () => ws.close();
       } else {
         addLine(`Deploy failed: ${res.message}`, 'stderr');
@@ -55,6 +61,47 @@ export function DeployControls({ scenario, slot }: DeployControlsProps) {
       updateSlotStatus(slot.slot_number, 'error');
     }
     setLoading(null);
+  };
+
+  const handleDeploy = () => {
+    if (slot.status !== 'empty') return;
+
+    if (activeSlots.length > 0) {
+      setShowActiveModal(true);
+    } else {
+      executeDeploy();
+    }
+  };
+
+  const handleDeployAnyway = () => {
+    setShowActiveModal(false);
+    executeDeploy();
+  };
+
+  const handleShutdownAndDeploy = async (slotsToDestroy: number[]) => {
+    setShowActiveModal(false);
+    clear();
+    setTerminalOpen(true);
+    setLoading('deploy');
+
+    addLine(`Shutting down ${slotsToDestroy.length} active slot${slotsToDestroy.length !== 1 ? 's' : ''} before deploy...`, 'system');
+
+    for (const slotNum of slotsToDestroy) {
+      addLine(`  Destroying slot ${String(slotNum).padStart(2, '0')}...`, 'system');
+      updateSlotStatus(slotNum, 'destroying');
+      try {
+        await destroySlot(slotNum);
+        updateSlotStatus(slotNum, 'empty');
+        addLine(`  Slot ${String(slotNum).padStart(2, '0')} destroyed.`, 'system');
+      } catch (err) {
+        addLine(`  Failed to destroy slot ${slotNum}: ${err instanceof Error ? err.message : String(err)}`, 'stderr');
+        updateSlotStatus(slotNum, 'error');
+      }
+    }
+
+    addLine('Shutdown complete. Starting deploy...', 'system');
+    setLoading(null);
+    await executeDeploy();
   };
 
   const handleDestroy = async () => {
@@ -114,39 +161,52 @@ export function DeployControls({ scenario, slot }: DeployControlsProps) {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Deploy */}
-      <button
-        onClick={handleDeploy}
-        disabled={slot.status !== 'empty' || loading !== null}
-        className="flex items-center gap-1.5 rounded-md border border-[#00e5a033] bg-[#00e5a00d] px-3 py-1.5 text-xs font-medium text-[#00e5a0] transition-all hover:bg-[#00e5a01a] disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Deploy scenario"
-      >
-        {loading === 'deploy' ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-        DEPLOY
-      </button>
+    <>
+      <div className="flex items-center gap-2">
+        {/* Deploy */}
+        <button
+          onClick={handleDeploy}
+          disabled={slot.status !== 'empty' || loading !== null}
+          className="flex items-center gap-1.5 rounded-md border border-[#00e5a033] bg-[#00e5a00d] px-3 py-1.5 text-xs font-medium text-[#00e5a0] transition-all hover:bg-[#00e5a01a] disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Deploy scenario"
+        >
+          {loading === 'deploy' ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+          DEPLOY
+        </button>
 
-      {/* Reset */}
-      <button
-        onClick={handleReset}
-        disabled={slot.status !== 'running' || loading !== null}
-        className="flex items-center gap-1.5 rounded-md border border-[#facc1533] bg-[#facc150d] px-3 py-1.5 text-xs font-medium text-[#facc15] transition-all hover:bg-[#facc151a] disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Reset to baseline"
-      >
-        {loading === 'reset' ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-        RESET
-      </button>
+        {/* Reset */}
+        <button
+          onClick={handleReset}
+          disabled={slot.status !== 'running' || loading !== null}
+          className="flex items-center gap-1.5 rounded-md border border-[#facc1533] bg-[#facc150d] px-3 py-1.5 text-xs font-medium text-[#facc15] transition-all hover:bg-[#facc151a] disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Reset to baseline"
+        >
+          {loading === 'reset' ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+          RESET
+        </button>
 
-      {/* Destroy */}
-      <button
-        onClick={handleDestroy}
-        disabled={slot.status === 'empty' || loading !== null}
-        className="flex items-center gap-1.5 rounded-md border border-[#fb718533] bg-[#fb71850d] px-3 py-1.5 text-xs font-medium text-[#fb7185] transition-all hover:bg-[#fb71851a] disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label="Destroy scenario"
-      >
-        {loading === 'destroy' ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-        DESTROY
-      </button>
-    </div>
+        {/* Destroy */}
+        <button
+          onClick={handleDestroy}
+          disabled={slot.status === 'empty' || loading !== null}
+          className="flex items-center gap-1.5 rounded-md border border-[#fb718533] bg-[#fb71850d] px-3 py-1.5 text-xs font-medium text-[#fb7185] transition-all hover:bg-[#fb71851a] disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Destroy scenario"
+        >
+          {loading === 'destroy' ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          DESTROY
+        </button>
+      </div>
+
+      {showActiveModal && (
+        <ActiveScenariosModal
+          activeSlots={activeSlots}
+          targetSlot={slot.slot_number}
+          scenarioName={scenario.display_name}
+          onDeployAnyway={handleDeployAnyway}
+          onShutdownAndDeploy={handleShutdownAndDeploy}
+          onCancel={() => setShowActiveModal(false)}
+        />
+      )}
+    </>
   );
 }

@@ -1,0 +1,13 @@
+---
+# SCEN-004 — Engineering workstation group vars
+# eng-ws is Linux (Debian), dual-homed Blue+OT
+# Domain join not applicable — this is a Linux jump box
+
+# eng-ws local credentials
+eng_ws_user: "labuser"
+eng_ws_password: "labuser"
+
+# OT zone IPs (visible from eng-ws second interface)
+ot_plc_ip: "192.168.103.10"
+ot_grfics_ip: "192.168.103.30"
+ot_historian_ip: "192.168.103.20"

@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { useSlots, useSlotVMs, useSlotMutations, useScenarios } from '../hooks/useAdmin';
 import { StatusBadge } from '../components/shared/StatusBadge';
+import { ActiveScenariosModal } from '../components/shared/ActiveScenariosModal';
 import {
   Rocket, Trash2, RotateCcw, Monitor, ChevronRight, Cpu, MemoryStick, Clock, Layers,
 } from 'lucide-react';
 import type { LabSlot, VMInfo } from '../types';
+
+type PendingDeploy = {
+  type: 'single';
+  slot: number;
+  scenarioId: string;
+} | {
+  type: 'all';
+  scenarioId: string;
+};
 
 export function SlotManagement() {
   const { data: slotsData, isLoading } = useSlots();
@@ -14,14 +24,29 @@ export function SlotManagement() {
   const [deployScenario, setDeployScenario] = useState('');
   const [showDeployAll, setShowDeployAll] = useState(false);
   const [deployAllScenario, setDeployAllScenario] = useState('');
+  const [pendingDeploy, setPendingDeploy] = useState<PendingDeploy | null>(null);
 
   const slots = slotsData?.slots ?? [];
   const scenarios = scenariosData?.scenarios ?? [];
   const selected = slots.find((s) => s.slot_number === selectedSlot) ?? null;
 
+  const activeSlots = slots.filter(
+    (s) => s.status === 'running' || s.status === 'deploying',
+  );
+
+  const getScenarioName = (id: string) =>
+    scenarios.find((s) => s.id === id)?.display_name ?? id;
+
   const handleDeploy = (slot: number) => {
     if (!deployScenario) return;
-    mutations.deploy.mutate({ slot, scenarioId: deployScenario });
+
+    // Filter out the target slot from active slots check
+    const otherActive = activeSlots.filter((s) => s.slot_number !== slot);
+    if (otherActive.length > 0) {
+      setPendingDeploy({ type: 'single', slot, scenarioId: deployScenario });
+    } else {
+      mutations.deploy.mutate({ slot, scenarioId: deployScenario });
+    }
   };
 
   const handleDestroy = (slot: number) => {
@@ -38,12 +63,65 @@ export function SlotManagement() {
 
   const handleDeployAll = () => {
     if (!deployAllScenario) return;
-    if (confirm(`Deploy "${deployAllScenario}" to ALL assigned empty slots?`)) {
-      mutations.deployAll.mutate(deployAllScenario);
+
+    if (activeSlots.length > 0) {
+      setPendingDeploy({ type: 'all', scenarioId: deployAllScenario });
       setShowDeployAll(false);
+    } else {
+      if (confirm(`Deploy "${deployAllScenario}" to ALL assigned empty slots?`)) {
+        mutations.deployAll.mutate(deployAllScenario);
+        setShowDeployAll(false);
+        setDeployAllScenario('');
+      }
+    }
+  };
+
+  const handleDeployAnyway = () => {
+    if (!pendingDeploy) return;
+
+    if (pendingDeploy.type === 'single') {
+      mutations.deploy.mutate({
+        slot: pendingDeploy.slot,
+        scenarioId: pendingDeploy.scenarioId,
+      });
+    } else {
+      mutations.deployAll.mutate(pendingDeploy.scenarioId);
+      setDeployAllScenario('');
+    }
+    setPendingDeploy(null);
+  };
+
+  const handleShutdownAndDeploy = async (slotsToDestroy: number[]) => {
+    if (!pendingDeploy) return;
+    const deploy = pendingDeploy;
+    setPendingDeploy(null);
+
+    // Destroy selected slots sequentially, then deploy
+    for (const slotNum of slotsToDestroy) {
+      try {
+        await mutations.destroy.mutateAsync(slotNum);
+      } catch {
+        // Continue destroying remaining slots even if one fails
+      }
+    }
+
+    if (deploy.type === 'single') {
+      mutations.deploy.mutate({
+        slot: deploy.slot,
+        scenarioId: deploy.scenarioId,
+      });
+    } else {
+      mutations.deployAll.mutate(deploy.scenarioId);
       setDeployAllScenario('');
     }
   };
+
+  const activeModalTarget =
+    pendingDeploy?.type === 'single' ? pendingDeploy.slot : 'all' as const;
+
+  const activeModalSlots = pendingDeploy?.type === 'single'
+    ? activeSlots.filter((s) => s.slot_number !== pendingDeploy.slot)
+    : activeSlots;
 
   return (
     <div className="p-8">
@@ -98,6 +176,18 @@ export function SlotManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Active scenarios conflict modal */}
+      {pendingDeploy && activeModalSlots.length > 0 && (
+        <ActiveScenariosModal
+          activeSlots={activeModalSlots}
+          targetSlot={activeModalTarget}
+          scenarioName={getScenarioName(pendingDeploy.scenarioId)}
+          onDeployAnyway={handleDeployAnyway}
+          onShutdownAndDeploy={handleShutdownAndDeploy}
+          onCancel={() => setPendingDeploy(null)}
+        />
       )}
 
       <div className="grid grid-cols-[1fr_1fr] gap-6">

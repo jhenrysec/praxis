@@ -118,6 +118,14 @@ class ApiClient {
     });
   }
 
+  /**
+   * Scheduled token refresh that uses the same dedup guard as 401 retries.
+   * Prevents token rotation races between the interval and concurrent requests.
+   */
+  async scheduledRefresh(): Promise<boolean> {
+    return this.tryRefreshToken();
+  }
+
   async getMe(): Promise<{ user: User }> {
     return this.request<{ user: User }>('/auth/me');
   }

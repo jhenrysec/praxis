@@ -8,14 +8,14 @@ import path from 'node:path';
 import type { ScenarioMeta } from '../types/index.js';
 
 const REPO_ROOT = process.env.REPO_ROOT || '/opt/vuln-lab';
-const SCENARIOS_DIR = path.join(REPO_ROOT, 'terraform/scenarios');
+const SCENARIOS_DIR = path.join(REPO_ROOT, 'scenarios');
 
 interface ScenarioYaml {
   id: string;
   name: string;
   display_name: string;
   difficulty: string;
-  duration_hours: number;
+  estimated_hours: number;
   description: string;
   vm_count: number;
   focus_areas: string[];
@@ -75,7 +75,7 @@ export function loadScenarios(): ScenarioMeta[] {
         name: parsed.name || entry.name,
         display_name: parsed.display_name || parsed.name || entry.name,
         difficulty: parsed.difficulty || 'Unknown',
-        duration_hours: parsed.duration_hours || 0,
+        duration_hours: parsed.estimated_hours || 0,
         vm_count: parsed.vm_count || 0,
         focus_areas: Array.isArray(parsed.focus_areas) ? parsed.focus_areas : [],
         mitre_techniques: Array.isArray(parsed.mitre_techniques) ? parsed.mitre_techniques : [],

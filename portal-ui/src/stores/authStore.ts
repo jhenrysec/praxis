@@ -99,20 +99,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearError: () => set({ error: null }),
 }));
 
-// Set up token auto-refresh (every 12 minutes for 15m-lived tokens)
+// Set up token auto-refresh (every 12 minutes for 15m-lived tokens).
+// Routes through apiClient.refresh() which deduplicates concurrent refresh
+// attempts, preventing token rotation races with 401-triggered refreshes.
 const REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
-setInterval(() => {
+setInterval(async () => {
   const { isAuthenticated } = useAuthStore.getState();
   if (!isAuthenticated) return;
 
   const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) return;
 
-  apiClient.refresh(refreshToken).then((tokens) => {
-    apiClient.setAccessToken(tokens.access_token);
-    sessionStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-  }).catch(() => {
+  const ok = await apiClient.scheduledRefresh();
+  if (!ok) {
     useAuthStore.getState().logout();
-  });
+  }
 }, REFRESH_INTERVAL_MS);

@@ -142,23 +142,25 @@ slotsRouter.post(
       const slotNumber = parseInt(param(req, 'slot'), 10);
       const { scenario_id } = req.body as z.infer<typeof deploySchema>;
 
+      // Atomic check-and-update: prevents TOCTOU race between concurrent deploys
       const slot = await queryOne<SlotRow>(
-        'SELECT * FROM lab_slots WHERE slot_number = $1',
-        [slotNumber],
-      );
-      if (!slot) throw new NotFoundError('Slot not found');
-
-      if (slot.status !== 'empty' && slot.status !== 'error') {
-        res.status(400).json({ error: `Slot is currently ${slot.status}` });
-        return;
-      }
-
-      // Mark as deploying
-      await query(
         `UPDATE lab_slots SET status = 'deploying', scenario_id = $1,
-         tf_workspace = $2, deploy_log = '' WHERE slot_number = $3`,
+         tf_workspace = $2, deploy_log = ''
+         WHERE slot_number = $3 AND status IN ('empty', 'error')
+         RETURNING *`,
         [scenario_id, `student-slot-${String(slotNumber).padStart(2, '0')}`, slotNumber],
       );
+
+      if (!slot) {
+        // Check if slot exists at all vs. wrong status
+        const existing = await queryOne<SlotRow>(
+          'SELECT status FROM lab_slots WHERE slot_number = $1',
+          [slotNumber],
+        );
+        if (!existing) throw new NotFoundError('Slot not found');
+        res.status(400).json({ error: `Slot is currently ${existing.status}` });
+        return;
+      }
       pushStatusUpdate();
 
       // Record assignment

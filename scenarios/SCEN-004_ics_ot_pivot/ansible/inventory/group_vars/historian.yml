@@ -1,0 +1,8 @@
+---
+# SCEN-004 — Historian group vars
+# InfluxDB + Grafana + Modbus bridge configuration
+
+historian_openplc_host: "192.168.103.10"
+historian_grfics_host: "192.168.103.30"
+
+grafana_admin_password: "LabGrafana2024!"

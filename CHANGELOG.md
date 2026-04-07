@@ -11,6 +11,131 @@ Types: `ADD` | `CHANGE` | `FIX` | `REMOVE` | `SECURITY` | `DOCS`
 
 *(Entries move here first, then to a dated section on release/phase completion)*
 
+## [2026-04-07] — INFRA_AGENT — FIX — SCEN-005 End-to-End Lifecycle Test
+
+### Fixes
+- **terraform.ts**: Added `resolveScenarioDir()` — resolves scenario IDs in any format (`SCEN-005`, `browser_exploit_cve_2026_2441`, or full directory name) against unified `scenarios/` structure with backward-compat symlink fallback
+- **browser-exploit.yml**: Fixed Ansible host group mismatch — `hosts: attacker` → `hosts: attackers` to match inventory `[attackers]` group
+- **auto-browse.service.j2**: Fixed X display access failure — service now runs as `labuser` (not root) with `XAUTHORITY` and `DBUS_SESSION_BUS_ADDRESS` env vars; added `ExecStartPre=/bin/sleep 10` for lightdm startup race
+- **auto-browse.sh.j2**: Removed `su - labuser` wrapper (redundant now that service runs as labuser); replaced infinite `while` display wait with bounded 30-attempt loop; chromium now runs directly without shell wrapper
+
+### Infrastructure Fixes
+- **vm_clone module**: Removed conflicting `ide2` cloud-init disk block — templates already have cloud-init on `ide0`; the extra disk caused `you can't resize a cdrom` errors during clone
+- Cleaned up 15 orphaned VMs from previous scenarios (SCEN-001 through SCEN-004) that were blocking VMID reuse
+
+### End-to-End Lifecycle Test (Deploy → Test → Destroy)
+- **Deploy** (slot 1): `terraform apply` — 3 VMs created in 34 seconds (linked clones from templates 101, 102)
+- **Ansible configure**: playbook `browser-exploit.yml` — 76 tasks, zero failures across all 3 hosts
+- **Student test — network recon**: nmap discovers webapp (10.10.2.20:3000) and victim (10.10.2.30) from attacker
+- **Student test — T1539 verified**: `POST /api/auth/login` returns `nexustrack_token` and `nexustrack_session` cookies without HttpOnly flag; stolen cookies grant full API access (5 client projects, user identity)
+- **Student test — session replay**: attacker at 10.10.2.10 accesses `/api/projects` with stolen cookies — 200 OK with full project data
+- **Forensic artifacts validated** (all deployed by Ansible):
+  - IOC-001: `~/.config/chromium/Crashpad/reports/crash_report_sim.dmp` — CSSFontFeatureValuesMap use-after-free stack trace
+  - IOC-002: `~/artifacts/network_capture.pcap` — scapy-generated PCAP
+  - IOC-003: `/var/log/webapp/access.log` — pre-staged session replay entries (python-requests UA from 10.10.1.10) + live entries from auto-browse
+  - IOC-004: `~/.config/chromium/Default/History` — 7 SQLite entries with exploit page visit embedded
+- **Auto-browse service**: active and cycling (Chromium opens URLs, types credentials on login forms)
+- **Phishing template**: deployed at `/home/labuser/payloads/phishing_template.txt` on attacker
+- **Destroy**: `terraform destroy` — all 3 VMs removed; Proxmox verified clean (only templates + mgmt remain)
+
+## [2026-04-06] — BACKEND_AGENT — FIX — Code Review: Functionality and Security Fixes
+
+### Priority 1 — Functionality Fixes
+- **scenarios.ts**: Fixed `SCENARIOS_DIR` from `terraform/scenarios` (old path) to `scenarios` (unified structure)
+- **scenarios.ts**: Fixed YAML field mapping — `estimated_hours` from scenario.yaml now correctly maps to `duration_hours` in `ScenarioMeta`
+- **email.ts**: Fixed infinite recursion when `EMAIL_MODE` is not `console` — fallback now sets mode to `console` instead of recursing
+- **package.json**: Fixed seed script path from `tsx database/seeds/seed.ts` to `tsx seeds/seed.ts` (file is at `seeds/seed.ts`)
+- **lab-ui/api/client.ts**: Fixed response unwrapping — backend returns `{ scenarios: [...] }`, `{ slots: [...] }`, `{ vms: [...] }` wrappers; client now unwraps correctly
+- **lab-ui/api/client.ts**: Added JWT auth header support (`Authorization: Bearer <token>`)
+- **lab-ui/api/client.ts**: Fixed WebSocket URL to use `/ws/status` with token query param instead of non-existent `/ws/deploy/:slot`
+- **lab-ui/api/client.ts**: Removed non-existent `/vms` and `/slots/:slot/access-sheet` endpoints
+- **VncViewer.tsx**: Fixed `isAllowedWsUrl` rejecting all VNC connections — backend returns direct `wss://` URLs to Proxmox (port 8006), which never matched `window.location.host`; now allows Proxmox API paths
+
+### Priority 2 — Security Fixes
+- **users.ts PATCH**: Replaced dynamic SQL column interpolation (`${key} = $N`) with explicit column whitelist (`ALLOWED_COLUMNS` map) — prevents column name injection even though Zod constrains the input shape
+- **slots.ts POST deploy**: Eliminated TOCTOU race condition — replaced separate SELECT + UPDATE with atomic `UPDATE ... WHERE status IN ('empty', 'error') RETURNING *`; concurrent deploy requests now safely fail instead of both proceeding
+- **authStore.ts**: Fixed token refresh race — interval-based refresh now routes through `apiClient.scheduledRefresh()` which uses the same dedup guard (`refreshPromise`) as 401-triggered refreshes, preventing both from rotating the token simultaneously
+
+### Build Verification
+- `tsc --noEmit` — zero errors (portal-backend, portal-ui, lab-ui)
+- `vite build` — zero warnings (portal-ui: 274KB JS + 21KB CSS; lab-ui: 276KB JS + 22KB CSS)
+- `tsc --project tsconfig.json` — portal-backend compiles cleanly
+
+## [2026-04-06] — FRONTEND_AGENT — ADD — Active Scenario Conflict Detection
+
+- Added `ActiveScenariosModal` to lab-ui (`lab-ui/src/components/ActiveScenariosModal.tsx`)
+  - Intercepts deploy action when other slots have running/deploying scenarios
+  - Shows selectable list of active slots with status, scenario name, and VM count
+  - Three actions: "Shut down selected and deploy", "Deploy anyway", "Cancel"
+  - Two-click confirmation on destructive shutdown action
+  - Select all/none helpers for bulk slot selection
+- Modified `DeployControls.tsx` to check slot store for active scenarios before deploying
+  - Sequentially destroys selected slots before triggering new deploy
+  - Terminal output shows shutdown progress per slot
+- Added `ActiveScenariosModal` to portal-ui (`portal-ui/src/components/shared/ActiveScenariosModal.tsx`)
+  - Same conflict detection for both single-slot deploy and deploy-all flows
+  - Portal-ui variant uses CSS custom properties for consistent theming
+- Modified `SlotManagement.tsx` to integrate conflict check into both deploy paths
+  - Single slot deploy: checks other active slots, shows modal if conflicts
+  - Deploy-all: checks all active slots, shows modal before bulk deploy
+  - Uses `mutateAsync` for sequential slot destruction before deploy
+- Build verified: `tsc --noEmit` zero errors + `vite build` zero warnings (both UIs)
+
+## [2026-04-02] — INFRA_AGENT — ADD — SCEN-005 Deployed and Validated (Slot 4)
+
+- Deployed 3 VMs via Terraform: kali-attacker-s4 (230), victim-ws-s4 (231), webapp-server-s4 (232)
+- Configured attacker dual-homed: eth0 10.10.7.10 (red), eth1 10.10.8.10 (blue), persistent
+- Created kali user on attacker VM (template uses labuser), deployed phishing template
+- NexusTrack Express.js webapp active on webapp-server:3000 with intentional cookie vulnerabilities
+- Victim workstation: XFCE desktop, Chromium 146 (snap), auto-browse service enabled
+- Fixed Chromium install: Ubuntu 24.04 snap transitional package fails; uses `snap install chromium` with fallback + `chromium-lab` wrapper script
+- Pre-staged artifacts: crash dump (IOC-001), browser History DB (IOC-004), network PCAP, webapp access logs, dressing documents
+- Baseline snapshots taken for all 3 VMs
+- Validated: attacker reaches webapp (HTTP 302) and victim (ping OK), tools available (nmap, msfconsole, python3)
+
+## [2026-04-02] — INFRA_AGENT — ADD — SCEN-004 Deployed and Validated (Slot 3)
+
+- Deployed 6 VMs via Terraform across 3 zones: kali-attacker-s3 (220), dc01-s3 (221), eng-ws-s3 (222), openplc-s3 (225), grfics-s3 (226), historian-s3 (227)
+- Promoted dc01 to lab.local domain controller, created Kerberoastable svc_scada service account
+- Configured eng-ws dual-homed: eth0 10.10.6.30 (blue), eth1 192.168.103.30 (OT), persistent
+- Configured attacker dual-homed: eth0 10.10.5.10 (red), eth1 10.10.6.10 (blue), persistent
+- OpenPLC Runtime running with tank_fill_control.st, Modbus TCP port 502 verified
+- Validated Modbus reads from eng-ws to OpenPLC (holding registers readable via pymodbus)
+- Windows DC required manual static IP + WinRM configuration via QEMU agent (APIPA on clone)
+- Baseline snapshots taken for all 6 VMs
+- ⚠️ Note: No pfSense firewall — attacker can reach OT zone directly; scenario relies on students following intended SSH pivot path
+
+## [2026-04-02] — INFRA_AGENT — ADD — SCEN-003 Deployed and Validated (Slot 2)
+
+- Deployed 4 VMs via Terraform: kali-attacker-s2 (210), dc01-s2 (211), ws01-s2 (212), ws02-s2 (213)
+- Promoted dc01 to lab.local domain controller with Lab Users, Lab Computers, Service Accounts OUs
+- Domain-joined ws01 and ws02 (resolved reboot handler hang by manual verification via QEMU agent)
+- Created vulnerable services: svc_sql (Kerberoastable, SPN MSSQLSvc/dc01.lab.local:1433), WDigest enabled, PowerShell Unrestricted
+- Created domain users: jsmith (domain user), agarcia (Domain Admin — lateral movement target)
+- Validated Kerberoasting: GetUserSPNs extracts svc_sql TGS, John cracks to Summer2024!
+- Validated secretsdump/DCSync: agarcia DA account dumps Administrator NTLM hash
+- Fixed agarcia password via Set-ADAccountPassword (bash `!` escaping issue with initial password set)
+- Baseline snapshots taken for all 4 VMs
+
+## [2026-04-02] — INFRA_AGENT — ADD — SCEN-002 Deployed and Validated (Slot 1)
+
+- Deployed 3 VMs via Terraform: kali-attacker-s1 (200), dc01-s1 (201), ws01-s1 (202)
+- Promoted dc01 to lab.local domain controller (Windows2016 functional level)
+- Created AD OU structure: Lab Users, Lab Computers, Service Accounts, Workstations, Servers
+- Created domain user jsmith (OU=Lab Users)
+- Domain-joined ws01 (resolved SID duplication via sysprep /generalize)
+- Created Kerberoastable service accounts via vulnerable-services role:
+  - svc_sql with SPN MSSQLSvc/dc01.lab.local:1433
+  - svc_backup with SPN WBEM/dc01.lab.local
+- Validated end-to-end: GetUserSPNs extracts both TGS tickets, John cracks both passwords
+- Made attacker eth1 (10.10.2.10) persistent, disabled cloud-init network override
+
+## [2026-04-02] — INFRA_AGENT — FIX — Ansible Role Fixes
+
+- Fixed `common-windows` role: replaced `Set-ExecutionPolicy` (fails with GPO conflict) with `win_regedit` approach
+- Fixed `ad-domain-controller` role: removed unsupported `state: domain_controller` param from microsoft.ad.domain, added `reboot: true`
+- Fixed `ad-domain-controller` role: rewrote DNS forwarders Jinja2 template from broken `regex_replace` to for loop
+
 ## [2026-04-01] — INFRA_AGENT — CHANGE — Unified Scenario Structure + Build System
 
 - Reorganized all 5 scenarios into self-contained `scenarios/SCEN-XXX_<name>/` directories

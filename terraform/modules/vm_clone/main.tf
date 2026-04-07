@@ -42,16 +42,9 @@ resource "proxmox_virtual_environment_vm" "this" {
     iothread     = true
   }
 
-  # Cloud-init drive (Linux only)
-  dynamic "disk" {
-    for_each = var.cloud_init ? [1] : []
-    content {
-      interface    = "ide2"
-      datastore_id = var.datastore
-      file_format  = "raw"
-      size         = 4
-    }
-  }
+  # Cloud-init drive is inherited from the template (ide0) for linked clones.
+  # The initialization block below handles cloud-init configuration.
+  # Do NOT add an explicit ide2 disk — it conflicts with the template's existing drive.
 
   # Network adapters — primary + optional second NIC for dual-homed VMs
   network_device = var.second_bridge != "" ? [

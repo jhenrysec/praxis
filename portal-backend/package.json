@@ -9,7 +9,7 @@
     "start":   "node dist/index.js",
     "migrate": "node-pg-migrate -m migrations up",
     "migrate:down": "node-pg-migrate -m migrations down",
-    "seed":    "tsx database/seeds/seed.ts",
+    "seed":    "tsx seeds/seed.ts",
     "test":    "vitest run",
     "test:watch": "vitest"
   },

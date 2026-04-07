@@ -29,7 +29,8 @@ class EmailService {
     // SMTP mode — requires nodemailer or similar
     // Placeholder for Phase 12+ if SMTP is configured
     console.warn('[email] SMTP mode not yet implemented — falling back to console');
-    await this.send({ ...options });
+    this.mode = 'console';
+    await this.send(options);
   }
 
   /** Send a password reset link. */

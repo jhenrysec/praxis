@@ -13,7 +13,7 @@ export PROXMOX_VE_ENDPOINT="https://192.168.1.50:8006/"
 export PROXMOX_VE_INSECURE="true"
 # Set these — never hardcode:
 export PROXMOX_VE_API_TOKEN_ID="terraform@pve!terraform"
-export PROXMOX_VE_API_TOKEN_SECRET="217d493f-e726-47e1-b7e5-82b07a408e99"
+export PROXMOX_VE_API_TOKEN_SECRET="bfa12437-4bee-42b8-a702-6229ce610d95"
 
 # ── Packer ───────────────────────────────────────────────────────────────────
 export PKR_VAR_proxmox_url="${PROXMOX_VE_ENDPOINT}api2/json"

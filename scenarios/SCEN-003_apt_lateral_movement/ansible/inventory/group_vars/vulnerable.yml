@@ -1,0 +1,20 @@
+---
+# SCEN-003 — Vulnerability configuration
+# Applied to all hosts in [vulnerable] group
+
+# T1003.001 — WDigest credential caching (cleartext in LSASS)
+vuln_wdigest_enabled: true
+
+# T1059.001 — PowerShell unrestricted execution
+vuln_powershell_unrestricted: true
+
+# T1574.001 — Unquoted service path (ws02 target)
+vuln_unquoted_service_path: true
+
+# Disable non-scenario vulns
+vuln_open_shares_enabled: false
+vuln_open_shares: []
+vuln_weak_passwords_enabled: false
+vuln_weak_accounts: []
+vuln_modbus_no_auth: false
+vuln_default_ics_creds: false

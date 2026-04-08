@@ -1,0 +1,33 @@
+---
+# ansible/playbooks/scada-modbus-recon.yml
+# Scenario: SCEN-001 — SCADA Modbus Recon & Manipulation
+# Purpose: Full post-deploy configuration for all 3 VMs
+# Updated: 2026-04-07
+#
+# Usage:
+#   ansible-playbook -i ../inventory/hosts.ini playbooks/scada-modbus-recon.yml
+#
+# Hosts expected in inventory:
+#   [attackers]    — kali-attacker (recon tools)
+#   [openplc]      — OpenPLC Runtime (Modbus TCP target)
+#   [historian]    — InfluxDB historian
+
+- name: "SCEN-001 — Configure Linux base on all hosts"
+  hosts: all
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/common-linux
+
+- name: "SCEN-001 — Configure OpenPLC runtime"
+  hosts: openplc
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/openplc-configure
+
+- name: "SCEN-001 — Configure historian (InfluxDB + Grafana)"
+  hosts: historian
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/influxdb-setup
+    - role: ../../../../ansible/roles/grafana-scada
+    - role: ../../../../ansible/roles/modbus-historian-bridge

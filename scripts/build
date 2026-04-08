@@ -578,14 +578,20 @@ lines = ["# Auto-generated inventory for slot " + slot, ""]
 
 # Group hosts by role based on naming patterns
 groups = {
-    "attacker": [],
+    "attackers": [],
     "victim": [],
     "webapp": [],
     "domain_controllers": [],
     "workstations": [],
-    "scada": [],
+    "engineering": [],
+    "openplc": [],
+    "grfics": [],
     "historian": [],
 }
+
+# Track which hosts are Windows vs Linux for parent groups
+windows_groups = []
+linux_groups = []
 
 # Parse access sheet for IPs and credentials
 for key, val in access.items():
@@ -605,19 +611,23 @@ for key, val in access.items():
 
     # Classify into groups
     if "attacker" in host_prefix or "kali" in host_prefix:
-        groups["attacker"].append(host_line)
+        groups["attackers"].append(host_line)
     elif "victim" in host_prefix:
         groups["victim"].append(host_line)
     elif "webapp" in host_prefix:
         groups["webapp"].append(host_line)
     elif "dc" in host_prefix:
         groups["domain_controllers"].append(host_line)
-    elif "ws" in host_prefix or "workstation" in host_prefix:
-        groups["workstations"].append(host_line)
+    elif "eng" in host_prefix:
+        groups["engineering"].append(host_line)
     elif "plc" in host_prefix or "openplc" in host_prefix:
-        groups["scada"].append(host_line)
+        groups["openplc"].append(host_line)
+    elif "grfics" in host_prefix:
+        groups["grfics"].append(host_line)
     elif "historian" in host_prefix:
         groups["historian"].append(host_line)
+    elif "ws" in host_prefix or "workstation" in host_prefix:
+        groups["workstations"].append(host_line)
     else:
         groups["workstations"].append(host_line)
 
@@ -627,6 +637,53 @@ for group, hosts in groups.items():
         lines.append(f"[{group}]")
         lines.extend(hosts)
         lines.append("")
+
+# Add parent groups based on what's populated
+# Windows: domain_controllers, workstations
+win_children = [g for g in ["domain_controllers", "workstations"] if groups[g]]
+if win_children:
+    lines.append("[windows:children]")
+    for g in win_children:
+        lines.append(g)
+    lines.append("")
+
+# Linux: attackers, victim, webapp, engineering, scada hosts
+linux_children = [g for g in ["attackers", "victim", "webapp", "engineering",
+                              "openplc", "grfics", "historian"] if groups[g]]
+if linux_children:
+    lines.append("[linux:children]")
+    for g in linux_children:
+        lines.append(g)
+    lines.append("")
+
+# SCADA parent group
+scada_children = [g for g in ["openplc", "grfics", "historian"] if groups[g]]
+if scada_children:
+    lines.append("[scada:children]")
+    for g in scada_children:
+        lines.append(g)
+    lines.append("")
+
+# Vulnerable: domain_controllers by default
+if groups["domain_controllers"]:
+    lines.append("[vulnerable:children]")
+    lines.append("domain_controllers")
+    lines.append("")
+
+# Connection vars
+if win_children:
+    lines.append("[windows:vars]")
+    lines.append("ansible_connection=winrm")
+    lines.append("ansible_port=5985")
+    lines.append("ansible_winrm_transport=ntlm")
+    lines.append("ansible_winrm_server_cert_validation=ignore")
+    lines.append("ansible_become=false")
+    lines.append("")
+
+if linux_children:
+    lines.append("[linux:vars]")
+    lines.append("ansible_connection=ssh")
+    lines.append("")
 
 # Add vars
 lines.append("[all:vars]")

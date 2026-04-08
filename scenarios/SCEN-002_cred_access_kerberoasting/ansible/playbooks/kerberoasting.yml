@@ -1,0 +1,40 @@
+---
+# ansible/playbooks/kerberoasting.yml
+# Scenario: SCEN-002 — Credential Access: Kerberoasting
+# Purpose: Full post-deploy configuration for all 3 VMs
+# Updated: 2026-04-07
+#
+# Usage:
+#   ansible-playbook -i ../inventory/hosts.ini playbooks/kerberoasting.yml
+#
+# Hosts expected in inventory:
+#   [attackers]            — kali-attacker
+#   [domain_controllers]   — dc01 (Windows Server 2022)
+#   [workstations]         — ws01 (Windows Server 2022)
+#   [vulnerable]           — hosts receiving intentional vulns
+
+- name: "SCEN-002 — Configure Linux base on attacker"
+  hosts: attackers
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/common-linux
+
+- name: "SCEN-002 — Configure Windows base on all Windows hosts"
+  hosts: windows
+  roles:
+    - role: ../../../../ansible/roles/common-windows
+
+- name: "SCEN-002 — Promote domain controller"
+  hosts: domain_controllers
+  roles:
+    - role: ../../../../ansible/roles/ad-domain-controller
+
+- name: "SCEN-002 — Join workstations to domain"
+  hosts: workstations
+  roles:
+    - role: ../../../../ansible/roles/ad-member-workstation
+
+- name: "SCEN-002 — Apply intentional vulnerabilities"
+  hosts: vulnerable
+  roles:
+    - role: ../../../../ansible/roles/vulnerable-services

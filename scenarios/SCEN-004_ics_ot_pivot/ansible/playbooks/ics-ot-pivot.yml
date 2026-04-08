@@ -1,0 +1,61 @@
+---
+# ansible/playbooks/ics-ot-pivot.yml
+# Scenario: SCEN-004 — ICS/OT Pivot: IT to OT Kill Chain
+# Purpose: Full post-deploy configuration for all 6 VMs
+# Updated: 2026-04-07
+#
+# Usage:
+#   ansible-playbook -i ../inventory/hosts.ini playbooks/ics-ot-pivot.yml
+#
+# Hosts expected in inventory:
+#   [attackers]            — kali-attacker (Red zone)
+#   [domain_controllers]   — dc01 (Blue zone, Windows)
+#   [engineering]          — eng-ws (Blue+OT dual-homed, Linux)
+#   [openplc]              — openplc-01 (OT zone)
+#   [grfics]               — grfics-host (OT zone)
+#   [historian]            — historian (OT zone)
+#   [vulnerable]           — dc01 (Kerberoastable SPNs)
+#
+# NOTE: eng-ws is Linux (Debian 12), NOT a Windows domain member.
+# It must NOT receive ad-member-workstation role.
+
+- name: "SCEN-004 — Configure Linux base on all Linux hosts"
+  hosts: linux
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/common-linux
+
+- name: "SCEN-004 — Configure Windows base on domain controller"
+  hosts: windows
+  roles:
+    - role: ../../../../ansible/roles/common-windows
+
+- name: "SCEN-004 — Promote domain controller"
+  hosts: domain_controllers
+  roles:
+    - role: ../../../../ansible/roles/ad-domain-controller
+
+- name: "SCEN-004 — Apply intentional vulnerabilities (Kerberoastable SPN)"
+  hosts: vulnerable
+  roles:
+    - role: ../../../../ansible/roles/vulnerable-services
+
+- name: "SCEN-004 — Configure OpenPLC runtime"
+  hosts: openplc
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/openplc-configure
+
+- name: "SCEN-004 — Deploy GRFICSv2 simulation"
+  hosts: grfics
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/grficsv2-deploy
+
+- name: "SCEN-004 — Configure historian (InfluxDB + Grafana + bridge)"
+  hosts: historian
+  become: true
+  roles:
+    - role: ../../../../ansible/roles/influxdb-setup
+    - role: ../../../../ansible/roles/grafana-scada
+    - role: ../../../../ansible/roles/modbus-historian-bridge

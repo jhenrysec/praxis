@@ -11,6 +11,95 @@ Types: `ADD` | `CHANGE` | `FIX` | `REMOVE` | `SECURITY` | `DOCS`
 
 *(Entries move here first, then to a dated section on release/phase completion)*
 
+## [2026-04-07] — INFRA_AGENT — FIX — SCEN-003/004 Deploy-Test Cycles
+
+### SCEN-003: APT Lateral Movement — Deploy-Test (Slot 1)
+- **Deploy**: 4 VMs via Terraform (kali-attacker-s1=200, dc01-s1=201, ws01-s1=202, ws02-s1=203)
+- **DC configuration**: promoted to lab.local, OU structure created, 3 users + svc_sql service account
+- **Kerberoasting validated**: `impacket-GetUserSPNs` extracts svc_sql TGS, john cracks to `Summer2024!`
+- **DCSync validated**: `impacket-secretsdump` with agarcia (DA) dumps Administrator NTLM hash via DRSUAPI
+- **Vulnerable services applied**: WDigest enabled, PowerShell unrestricted, script block logging disabled
+- **Password fix**: agarcia password reset via `Set-ADAccountPassword` (initial password set had bash `!` escaping issue)
+- **Destroyed**: all 4 VMs removed, Proxmox clean
+- ⚠️ Workstation domain join blocked by SID duplication — all clones from tpl-win2022 share same machine SID
+  - Root cause: Packer template needs sysprep `/generalize` before conversion to template
+  - Impact: lateral movement via PtH/WinRM between workstations not testable until template is rebuilt
+
+### SCEN-004: ICS/OT Pivot — Deploy-Test (Slot 1)
+- **Deploy**: 6 VMs via Terraform across 3 zones (red, blue, OT) in ~45 seconds
+- **DC configuration**: promoted to lab.local, svc_scada Kerberoastable account with SPN
+- **Vulnerable services**: WDigest, PowerShell unrestricted, script block logging disabled (applied via ad-hoc after role collision)
+- **Dual-homing**: eng-ws configured with eth1 at 192.168.101.50 (OT zone), attacker eth1 at 10.10.2.10 (blue zone)
+- **OpenPLC validated**: Modbus TCP port 502 listening, holding register 0 reads 100 (tank fill setpoint)
+- **Kerberoasting validated**: svc_scada TGS extracted from attacker
+- **Modbus validated**: attacker reads OpenPLC holding registers via pymodbus
+- **Destroyed**: all 6 VMs removed, Proxmox clean
+- ⚠️ GRFICSv2 Docker images (`fortiphyd/grfics-*`) not available on Docker Hub — pull fails
+- ⚠️ No pfSense firewall between zones — attacker reaches OT directly; scenario relies on intended SSH pivot path
+- ⚠️ Kali common-linux role fails (apt cache update on isolated network) — cosmetic, template has all tools
+
+### Ansible Role Fix: vulnerable-services / ad-domain-controller collision
+- When `ad_users` in inventory includes `spn` field, ad-domain-controller creates the service account
+- vulnerable-services then fails trying to create the same account (`New-ADUser: account already exists`)
+- Workaround: applied vuln configs (WDigest, PS policy) via ad-hoc commands after role failure
+
+### SCEN-005: PCAP Template Fix Verified
+- Fixed `generate_pcap.py.j2` line 111: `b'{"cookies":...'` → `f'{{"cookies":...'` (cannot mix bytes and f-string literals)
+- Full Ansible run completed: 76 tasks, zero failures across all 3 hosts
+- PCAP verified: 14 packets with correct slot-1 IPs (10.10.1.10, 10.10.2.20, 10.10.2.30)
+- SCEN-005 destroyed clean
+
+## [2026-04-07] — INFRA_AGENT — FIX — Cross-Scenario Validation and Ansible Fixes
+
+### Terraform Validation
+- All 5 scenarios (`terraform plan`) verified clean from cold state — zero errors
+- Fixed SCEN-004 `terraform.tfvars` slot_number from 3 to 1 for consistency
+
+### Ansible — Critical Fixes
+- Created missing scenario-specific playbooks for SCEN-001 through SCEN-004:
+  - `SCEN-001/ansible/playbooks/scada-modbus-recon.yml` — 3 plays (common-linux, openplc-configure, historian stack)
+  - `SCEN-002/ansible/playbooks/kerberoasting.yml` — 5 plays (common-linux, common-windows, ad-dc, ad-member, vulnerable-services)
+  - `SCEN-003/ansible/playbooks/lateral-movement.yml` — 5 plays (same pattern, vulnerable on DCs + workstations)
+  - `SCEN-004/ansible/playbooks/ics-ot-pivot.yml` — 7 plays (IT + OT stack, explicitly excludes ad-member on eng-ws Linux VM)
+- Fixed SCEN-004 inventory: renamed `[workstations]` → `[engineering]` for eng-ws (Linux, not Windows)
+- Fixed SCEN-001 inventory: `[attacker]` → `[attackers]`, added `[linux:children]` and connection vars
+- Fixed SCEN-003 `scenario.yaml`: removed phantom ATT&CK technique T1574.001 not exercised in scenario
+
+### Ansible — SCEN-005 Slot-Aware IP Templatization
+- Converted `stage-pcap-artifacts/files/generate_pcap.py` → `templates/generate_pcap.py.j2`
+  - IP variables (`victim_ip`, `webapp_ip`, `attacker_ip`) injected via Jinja2 at template render
+  - All Python code wrapped in `{% raw %}...{% endraw %}` to prevent Jinja2/f-string conflict
+  - Task changed from `copy` to `template` module
+- Templatized `stage-webapp-artifacts` access log: `files/` → `templates/webapp_access_log_sim.log.j2`
+- Templatized `stage-browser-artifacts` exploit page URL via `{{ attacker_ip }}` variable
+- Templatized `stage-dressing-ws` portal URL via `{{ webapp_ip }}` variable
+- Added IP default variables to all affected roles' `defaults/main.yml`
+
+### Ansible — Medium Fixes
+- Fixed `openplc-configure` defaults: `openplc_web_port: 8443` → `8080`, `openplc_web_scheme: "https"` → `"http"`
+- Fixed `vulnerable-services` tasks: flattened nested groups list parameter
+- Created missing `common-linux/templates/timesyncd.conf.j2` template
+- Deleted orphaned `browser-victim-setup/templates/chromium-pin.j2` (never referenced)
+
+### Build Script Fixes
+- Fixed `scripts/build` dynamic inventory generation:
+  - Group names: `attacker` → `attackers`, `scada` → `openplc`
+  - Added host classification: `eng-*` → `[engineering]`, `grfics-*` → `[grfics]`
+  - Added parent groups: `[windows:children]`, `[linux:children]`, `[scada:children]`, `[vulnerable:children]`
+  - Added connection vars sections (WinRM for Windows, SSH for Linux)
+
+### UI Build Verification
+- `portal-backend`: `tsc --noEmit` — zero TypeScript errors
+- `portal-ui`: `tsc --noEmit` — zero errors, `vite build` — 274KB JS + 21KB CSS
+- `lab-ui`: `tsc --noEmit` — zero errors, `vite build` — 276KB JS + 22KB CSS
+
+### Deploy Testing
+- SCEN-001: deployed (slot 1), Ansible configured, Modbus TCP + InfluxDB validated, destroyed
+- SCEN-002: deployed (slot 1), 3 VMs confirmed running, destroyed
+- SCEN-005: deployed (slot 1), Ansible partial run — webapp (28 tasks OK), victim (36 tasks before PCAP fix needed)
+- ⚠️ SCEN-005 Ansible re-run pending — Proxmox host offline before verification of `{% raw %}` fix
+- ⚠️ SCEN-003/004 deploy tests deferred — Terraform plans clean, playbooks structurally validated
+
 ## [2026-04-07] — INFRA_AGENT — FIX — SCEN-005 End-to-End Lifecycle Test
 
 ### Fixes

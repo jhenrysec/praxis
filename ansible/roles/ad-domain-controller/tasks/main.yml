@@ -19,8 +19,6 @@
     dns_domain_name: "{{ ad_domain_name }}"
     domain_netbios_name: "{{ ad_netbios_name }}"
     safe_mode_password: "{{ ad_dsrm_password }}"
-    domain_mode: "{{ ad_domain_functional_level }}"
-    forest_mode: "{{ ad_forest_functional_level }}"
     install_dns: true
     reboot: true
   register: ad_promotion

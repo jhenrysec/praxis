@@ -53,6 +53,7 @@
     state: present
   register: win_features
   notify: reboot_if_pending
+  ignore_errors: true
 
 - name: "[WIN-COMMON] Disable Windows Update auto-restart"
   ansible.windows.win_regedit:

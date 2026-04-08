@@ -1,0 +1,5 @@
+# /etc/systemd/timesyncd.conf
+# Managed by Ansible — common-linux role
+[Time]
+NTP={{ ntp_server | default('pool.ntp.org') }}
+FallbackNTP=0.pool.ntp.org 1.pool.ntp.org

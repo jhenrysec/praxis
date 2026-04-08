@@ -47,8 +47,7 @@
   ansible.windows.win_user:
     name: "{{ item.username }}"
     password: "{{ item.password }}"
-    groups:
-      - "{{ item.groups | default(['Users']) }}"
+    groups: "{{ item.groups | default(['Users']) }}"
     state: present
     password_never_expires: true
   loop: "{{ vuln_weak_accounts }}"

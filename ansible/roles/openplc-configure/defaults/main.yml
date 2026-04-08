@@ -1,7 +1,7 @@
 ---
 # openplc-configure defaults
-openplc_web_port: 8443
-openplc_web_scheme: "https"
+openplc_web_port: 8080
+openplc_web_scheme: "http"
 openplc_modbus_port: 502
 
 # Default OpenPLC credentials (intentionally weak for lab scenarios)

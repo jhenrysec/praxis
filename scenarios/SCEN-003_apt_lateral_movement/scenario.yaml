@@ -14,7 +14,6 @@ mitre_techniques:
   - T1003.003  # NTDS
   - T1558.003  # Kerberoasting
   - T1059.001  # PowerShell
-  - T1574.001  # DLL Search Order Hijacking
 vm_count: 4
 total_cpu: 12
 total_memory_mb: 16384

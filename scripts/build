@@ -594,6 +594,7 @@ windows_groups = []
 linux_groups = []
 
 # Parse access sheet for IPs and credentials
+WINDOWS_PREFIXES = ("dc", "ws", "workstation")
 for key, val in access.items():
     if not key.endswith("_ip"):
         continue
@@ -601,13 +602,18 @@ for key, val in access.items():
     ip = val
     user_key = f"{host_prefix}_user"
     pass_key = f"{host_prefix}_pass"
-    user = access.get(user_key, "ansible")
-    passwd = access.get(pass_key, "")
+
+    is_windows = any(p in host_prefix for p in WINDOWS_PREFIXES)
+    default_user = "Administrator" if is_windows else "ansible"
+    default_pass = "LabAdmin2024!" if is_windows else ""
+    user = access.get(user_key, default_user)
+    passwd = access.get(pass_key, default_pass)
 
     host_line = f"{ip} ansible_user={user}"
     if passwd:
         host_line += f" ansible_password={passwd}"
-    host_line += " ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+    if not is_windows:
+        host_line += " ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
 
     # Classify into groups
     if "attacker" in host_prefix or "kali" in host_prefix:

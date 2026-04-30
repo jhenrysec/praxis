@@ -1,0 +1,87 @@
+---
+# ansible/roles/sysmon-install/tasks/main.yml
+# Prereq: wazuh-agent-windows role has already installed the agent.
+# The role is idempotent — re-runs update the config in place via
+# `Sysmon64.exe -c config.xml` and only touch ossec.conf once.
+
+- name: "[SYSMON] Check if Sysmon service is already installed"
+  ansible.windows.win_service_info:
+    name: "{{ sysmon_service_name }}"
+  register: sysmon_service_state
+
+- name: "[SYSMON] Stage Sysmon install directory"
+  ansible.windows.win_file:
+    path: "{{ sysmon_install_dir }}"
+    state: directory
+  when: (sysmon_service_state.services | length) == 0
+
+- name: "[SYSMON] Download Sysmon.zip from Sysinternals"
+  ansible.windows.win_get_url:
+    url: "{{ sysmon_zip_url }}"
+    dest: "{{ sysmon_zip_staging }}"
+    force: false
+  when: (sysmon_service_state.services | length) == 0
+
+- name: "[SYSMON] Unzip Sysmon into install dir"
+  ansible.windows.win_shell: |
+    Expand-Archive -Path "{{ sysmon_zip_staging }}" `
+                   -DestinationPath "{{ sysmon_install_dir }}" -Force
+  args:
+    creates: "{{ sysmon_install_dir }}\\{{ sysmon_binary }}"
+  when: (sysmon_service_state.services | length) == 0
+
+- name: "[SYSMON] Deliver Sysmon config to ProgramData"
+  ansible.windows.win_copy:
+    src: sysmon-config.xml
+    dest: "{{ sysmon_config_remote }}"
+  register: sysmon_cfg_delivery
+
+- name: "[SYSMON] Install Sysmon with config (first-run)"
+  ansible.windows.win_shell: |
+    & "{{ sysmon_install_dir }}\{{ sysmon_binary }}" -accepteula `
+        -i "{{ sysmon_config_remote }}"
+  when: (sysmon_service_state.services | length) == 0
+  register: sysmon_install_result
+  changed_when: sysmon_install_result.rc == 0
+
+- name: "[SYSMON] Apply updated config when service already running"
+  ansible.windows.win_shell: |
+    & "$env:SystemRoot\{{ sysmon_binary }}" -c "{{ sysmon_config_remote }}"
+  when:
+    - (sysmon_service_state.services | length) > 0
+    - sysmon_cfg_delivery.changed
+  changed_when: true
+
+- name: "[SYSMON] Ensure Sysmon service is running"
+  ansible.windows.win_service:
+    name: "{{ sysmon_service_name }}"
+    state: started
+    start_mode: auto
+
+- name: "[SYSMON] Subscribe Wazuh agent to Microsoft-Windows-Sysmon/Operational"
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    $cfg    = "{{ sysmon_wazuh_agent_conf }}"
+    $marker = '<!-- sysmon-channel: managed by sysmon-install role -->'
+    if (-not (Test-Path $cfg)) {
+        throw "Wazuh agent ossec.conf not found at $cfg -- install wazuh-agent-windows first."
+    }
+    $raw = Get-Content -Raw -Path $cfg
+    if ($raw -match [Regex]::Escape($marker)) {
+        Write-Output 'already-present'
+        exit 0
+    }
+    $nl    = "`r`n"
+    $block = $nl + $marker + $nl `
+        + "<ossec_config>" + $nl `
+        + "  <localfile>" + $nl `
+        + "    <location>Microsoft-Windows-Sysmon/Operational</location>" + $nl `
+        + "    <log_format>eventchannel</log_format>" + $nl `
+        + "  </localfile>" + $nl `
+        + "</ossec_config>" + $nl
+    $out = $raw.TrimEnd() + $block
+    Set-Content -Path $cfg -Value $out -Encoding utf8
+    Write-Output 'added'
+  register: sysmon_agent_subscribe
+  changed_when: "'added' in (sysmon_agent_subscribe.stdout | default(''))"
+  notify: restart WazuhSvc

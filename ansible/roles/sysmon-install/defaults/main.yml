@@ -1,0 +1,16 @@
+---
+# ansible/roles/sysmon-install/defaults/main.yml
+# Installs Sysinternals Sysmon and wires Wazuh agent to forward Sysmon
+# events via the Microsoft-Windows-Sysmon/Operational eventchannel.
+
+# Sysmon binary + config staging.
+sysmon_zip_url: "https://download.sysinternals.com/files/Sysmon.zip"
+sysmon_zip_staging: 'C:\Windows\Temp\Sysmon.zip'
+sysmon_install_dir: 'C:\Windows\Temp\Sysmon'
+sysmon_binary: "Sysmon64.exe"
+sysmon_service_name: "Sysmon64"
+sysmon_config_remote: 'C:\ProgramData\sysmon-config.xml'
+
+# Wazuh agent integration — ossec.conf path must match the agent role.
+sysmon_wazuh_agent_dir: 'C:\Program Files (x86)\ossec-agent'
+sysmon_wazuh_agent_conf: "{{ sysmon_wazuh_agent_dir }}\\ossec.conf"

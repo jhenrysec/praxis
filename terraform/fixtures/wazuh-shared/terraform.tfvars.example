@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in secrets.
+# terraform.tfvars is gitignored — never commit real tokens.
+
+proxmox_api_token = "terraform@pve!terraform=REPLACE_WITH_SECRET"
+
+# Defaults below usually work — uncomment to override.
+# proxmox_endpoint       = "https://192.168.1.50:8006/"
+# proxmox_node           = "pve01"
+# ssh_private_key_path   = "~/.ssh/lab_key"
+# ssh_public_key_path    = "~/.ssh/lab_key.pub"
+# wazuh_ip_address       = "192.168.1.60"    # Analyst dashboard NIC (vmbr0)
+# wazuh_gateway          = "192.168.1.1"
+# wazuh_agent_bridge     = "vmbr4"           # Must be created on host first
+# wazuh_agent_ip_address = "192.168.4.10"    # Agent-facing NIC on vmbr4

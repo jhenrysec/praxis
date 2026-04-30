@@ -1,0 +1,20 @@
+<Sysmon schemaversion="4.90">
+  <!--
+    Lab Sysmon config — minimal profile tuned to feed Wazuh rule 100110
+    (LSASS credential access, T1003.001). Scope is intentionally narrow:
+    we only need ProcessAccess events where TargetImage ends in lsass.exe
+    so the ruleset gets the signal without swamping the manager with
+    ProcessCreate / NetworkConnect volume in a lab context.
+
+    Add more Event IDs here as additional Sysmon-backed rules are added
+    to local_rules.xml (ProcessCreate → 1, FileCreate → 11, etc.).
+  -->
+  <HashAlgorithms>SHA256</HashAlgorithms>
+  <EventFiltering>
+    <RuleGroup name="" groupRelation="or">
+      <ProcessAccess onmatch="include">
+        <TargetImage condition="end with">lsass.exe</TargetImage>
+      </ProcessAccess>
+    </RuleGroup>
+  </EventFiltering>
+</Sysmon>

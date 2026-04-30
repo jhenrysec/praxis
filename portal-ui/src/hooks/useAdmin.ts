@@ -61,7 +61,11 @@ export function useSlotVMs(slot: number | null) {
 
 export function useSlotMutations() {
   const qc = useQueryClient();
-  const invalidate = () => { void qc.invalidateQueries({ queryKey: ['slots'] }); };
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['slots'] });
+    void qc.invalidateQueries({ queryKey: ['slotVMs'] });
+    void qc.invalidateQueries({ queryKey: ['diagnostics'] });
+  };
 
   const deploy = useMutation({
     mutationFn: ({ slot, scenarioId }: { slot: number; scenarioId: string }) => apiClient.deploySlot(slot, scenarioId),
@@ -69,9 +73,37 @@ export function useSlotMutations() {
   });
   const destroy = useMutation({ mutationFn: (slot: number) => apiClient.destroySlot(slot), onSuccess: invalidate });
   const reset = useMutation({ mutationFn: (slot: number) => apiClient.resetSlot(slot), onSuccess: invalidate });
+  const shutdown = useMutation({ mutationFn: (slot: number) => apiClient.shutdownSlot(slot), onSuccess: invalidate });
+  const start = useMutation({ mutationFn: (slot: number) => apiClient.startSlot(slot), onSuccess: invalidate });
+  const forceDestroy = useMutation({ mutationFn: (slot: number) => apiClient.forceDestroySlot(slot), onSuccess: invalidate });
   const deployAll = useMutation({ mutationFn: (scenarioId: string) => apiClient.deployAll(scenarioId), onSuccess: invalidate });
 
-  return { deploy, destroy, reset, deployAll };
+  return { deploy, destroy, reset, shutdown, start, forceDestroy, deployAll };
+}
+
+export function useSlotDiagnostics(slot: number | null, enabled = true) {
+  return useQuery({
+    queryKey: ['diagnostics', slot],
+    queryFn: () => apiClient.getSlotDiagnostics(slot!),
+    enabled: enabled && slot !== null,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useVMMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['slotVMs'] });
+    void qc.invalidateQueries({ queryKey: ['diagnostics'] });
+  };
+
+  const start = useMutation({ mutationFn: (vmId: number) => apiClient.startVM(vmId), onSuccess: invalidate });
+  const shutdown = useMutation({ mutationFn: (vmId: number) => apiClient.shutdownVM(vmId), onSuccess: invalidate });
+  const stop = useMutation({ mutationFn: (vmId: number) => apiClient.stopVM(vmId), onSuccess: invalidate });
+  const reboot = useMutation({ mutationFn: (vmId: number) => apiClient.rebootVM(vmId), onSuccess: invalidate });
+  const rollback = useMutation({ mutationFn: (vmId: number) => apiClient.rollbackVM(vmId), onSuccess: invalidate });
+
+  return { start, shutdown, stop, reboot, rollback };
 }
 
 // ── Scenarios ──────────────────────────────────────────────────────────

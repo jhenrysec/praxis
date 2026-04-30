@@ -1,15 +1,19 @@
 import type { SlotStatus, VMState } from '@/types';
-import { STATUS_COLORS, VM_STATE_COLORS } from '@/types';
+import { STATUS_COLORS, VM_STATE_COLORS, PULSING_STATUSES } from '@/types';
 
 interface StatusBadgeProps {
-  status: SlotStatus | VMState;
+  status: SlotStatus | VMState | string;
   variant?: 'slot' | 'vm';
 }
 
+const FALLBACK = { bg: '#4b55631a', text: '#4b5563', border: '#4b556333' };
+
 export function StatusBadge({ status, variant = 'slot' }: StatusBadgeProps) {
   const colors = variant === 'vm'
-    ? VM_STATE_COLORS[status as VMState] ?? VM_STATE_COLORS.unknown
-    : STATUS_COLORS[status as SlotStatus] ?? STATUS_COLORS.empty;
+    ? (VM_STATE_COLORS[status as VMState] ?? FALLBACK)
+    : (STATUS_COLORS[status as SlotStatus] ?? FALLBACK);
+
+  const pulse = PULSING_STATUSES.has(status as SlotStatus | VMState);
 
   return (
     <span
@@ -22,9 +26,7 @@ export function StatusBadge({ status, variant = 'slot' }: StatusBadgeProps) {
       aria-label={`Status: ${status}`}
     >
       <span
-        className={`inline-block h-1.5 w-1.5 rounded-full ${
-          status === 'running' || status === 'deploying' ? 'animate-pulse-green' : ''
-        }`}
+        className={`inline-block h-1.5 w-1.5 rounded-full ${pulse ? 'animate-pulse-green' : ''}`}
         style={{ backgroundColor: colors.text }}
       />
       {status}

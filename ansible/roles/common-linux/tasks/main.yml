@@ -10,11 +10,16 @@
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
+  register: apt_cache_result
+  failed_when: false
+  changed_when: apt_cache_result.changed | default(false)
 
 - name: "[COMMON] Install common packages"
   ansible.builtin.apt:
     name: "{{ common_packages }}"
     state: present
+  when: apt_cache_result is not failed
+  failed_when: false
 
 - name: "[COMMON] Enable and start qemu-guest-agent"
   ansible.builtin.systemd:

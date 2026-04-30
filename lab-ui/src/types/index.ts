@@ -43,7 +43,17 @@ export interface NetworkHost {
 
 // ── Slot Types ──────────────────────────────────────────────────────────────
 
-export type SlotStatus = 'empty' | 'deploying' | 'running' | 'error' | 'destroying';
+export type SlotStatus =
+  | 'empty'
+  | 'deploying'
+  | 'running'
+  | 'stopped'
+  | 'starting'
+  | 'stopping'
+  | 'configuring'
+  | 'resetting'
+  | 'error'
+  | 'destroying';
 
 export interface LabSlot {
   slot_number: number;
@@ -52,7 +62,32 @@ export interface LabSlot {
   scenario_name: string | null;
   deployed_at: string | null;
   user: string | null;
-  vms: VMStatus[];
+  last_error?: string | null;
+  vms?: VMStatus[];
+}
+
+// ── Diagnostics ─────────────────────────────────────────────────────────────
+
+export interface VmDiagnostic {
+  vmid: number;
+  name: string;
+  proxmox_status: string;
+  has_baseline_snapshot: boolean;
+  snapshot_count: number;
+  tags: string[];
+  uptime: number;
+}
+
+export interface SlotDiagnostics {
+  slot_number: number;
+  db_status: SlotStatus;
+  db_scenario_id: string | null;
+  vm_count: number;
+  vms: VmDiagnostic[];
+  orphan_vms: VmDiagnostic[];
+  vms_without_baseline: number[];
+  workspace_expected: string | null;
+  advisories: string[];
 }
 
 // ── VM Types ────────────────────────────────────────────────────────────────
@@ -121,12 +156,27 @@ export const DIFFICULTY_COLORS: Record<Scenario['difficulty'], string> = {
 };
 
 export const STATUS_COLORS: Record<SlotStatus, { bg: string; text: string; border: string }> = {
-  empty:      { bg: '#4b55631a', text: '#4b5563', border: '#4b556333' },
-  deploying:  { bg: '#facc151a', text: '#facc15', border: '#facc1533' },
-  running:    { bg: '#00e5a01a', text: '#00e5a0', border: '#00e5a033' },
-  error:      { bg: '#fb71851a', text: '#fb7185', border: '#fb718533' },
-  destroying: { bg: '#a78bfa1a', text: '#a78bfa', border: '#a78bfa33' },
+  empty:       { bg: '#4b55631a', text: '#4b5563', border: '#4b556333' },
+  deploying:   { bg: '#facc151a', text: '#facc15', border: '#facc1533' },
+  running:     { bg: '#00e5a01a', text: '#00e5a0', border: '#00e5a033' },
+  stopped:     { bg: '#6c8fff1a', text: '#6c8fff', border: '#6c8fff33' },
+  starting:    { bg: '#facc151a', text: '#facc15', border: '#facc1533' },
+  stopping:    { bg: '#facc151a', text: '#facc15', border: '#facc1533' },
+  configuring: { bg: '#a78bfa1a', text: '#a78bfa', border: '#a78bfa33' },
+  resetting:   { bg: '#a78bfa1a', text: '#a78bfa', border: '#a78bfa33' },
+  error:       { bg: '#fb71851a', text: '#fb7185', border: '#fb718533' },
+  destroying:  { bg: '#fb71851a', text: '#fb7185', border: '#fb718533' },
 };
+
+export const PULSING_STATUSES: ReadonlySet<SlotStatus | VMState> = new Set<SlotStatus | VMState>([
+  'running',
+  'deploying',
+  'starting',
+  'stopping',
+  'configuring',
+  'resetting',
+  'destroying',
+]);
 
 export const VM_STATE_COLORS: Record<VMState, { bg: string; text: string; border: string }> = {
   running: { bg: '#00e5a01a', text: '#00e5a0', border: '#00e5a033' },

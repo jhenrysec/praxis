@@ -1,6 +1,16 @@
 export type Role = 'admin' | 'instructor' | 'student';
 export type UserStatus = 'pending' | 'active' | 'locked' | 'deleted';
-export type SlotStatus = 'empty' | 'deploying' | 'running' | 'error' | 'destroying';
+export type SlotStatus =
+  | 'empty'
+  | 'deploying'
+  | 'running'
+  | 'stopped'
+  | 'starting'
+  | 'stopping'
+  | 'configuring'
+  | 'resetting'
+  | 'error'
+  | 'destroying';
 
 export interface UserRow {
   id: string;
@@ -53,6 +63,7 @@ export interface SlotRow {
   deployed_at: Date | null;
   last_reset: Date | null;
   deploy_log: string | null;
+  last_error: string | null;
 }
 
 export interface ScenarioAssignmentRow {

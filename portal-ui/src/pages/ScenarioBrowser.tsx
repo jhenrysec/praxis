@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom';
 import { useScenarios } from '../hooks/useAdmin';
-import { BookOpen, Clock, Monitor, Target, Shield } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
+import { Clock, Monitor, Target, Shield } from 'lucide-react';
 import type { Scenario } from '../types';
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -41,9 +43,24 @@ export function ScenarioBrowser() {
 
 function ScenarioCard({ scenario }: { scenario: Scenario }) {
   const diffColor = DIFFICULTY_COLORS[scenario.difficulty] ?? { bg: '#00e5a01a', text: '#00e5a0', border: '#00e5a033' };
+  const role = useAuthStore((s) => s.user?.role);
+  const canDeploy = role === 'admin' || role === 'instructor';
+
+  const cardClasses = canDeploy
+    ? 'block bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 hover:border-[var(--border-active)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent-blue)]'
+    : 'block bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5';
+
+  const Wrapper = ({ children }: { children: React.ReactNode }) =>
+    canDeploy ? (
+      <Link to={`/admin/slots?scenario=${encodeURIComponent(scenario.id)}`} className={cardClasses}>
+        {children}
+      </Link>
+    ) : (
+      <div className={cardClasses}>{children}</div>
+    );
 
   return (
-    <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-5 hover:border-[var(--border-active)] transition-colors">
+    <Wrapper>
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
@@ -109,6 +126,6 @@ function ScenarioCard({ scenario }: { scenario: Scenario }) {
           </div>
         </div>
       )}
-    </div>
+    </Wrapper>
   );
 }

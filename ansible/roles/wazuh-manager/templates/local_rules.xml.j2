@@ -1,0 +1,143 @@
+<!--
+  local_rules.xml - Lab-specific Wazuh detection rules
+  Managed by ansible/roles/wazuh-manager
+  Do not edit directly; change the role template instead.
+
+  Rule ID allocation (Wazuh reserves 100000-120000 for local rules):
+    100100-100109  Kerberoasting (T1558.003)
+    100110-100119  LSASS credential access (T1003.001)
+    100120-100129  Modbus write on OT zones (T0836)
+
+  References:
+    https://attack.mitre.org/techniques/T1558/003/
+    https://attack.mitre.org/techniques/T1003/001/
+    https://attack.mitre.org/techniques/T0836/
+-->
+
+<group name="lab,kerberos,attack.T1558_003,">
+
+  <!--
+    T1558.003 — Kerberoasting.
+    Windows Event 4769 records each Kerberos TGS (service ticket) request.
+    Legitimate 4769s use AES (encryption type 0x12 or 0x11); RC4 (0x17) is
+    the adversary's signal because it yields a crackable hash. Krb accounts
+    that legitimately lack AES keys also produce RC4 — tune by adding
+    allow-list logic in a higher-level rule if your environment has legacy
+    service accounts pinned to RC4.
+  -->
+  <rule id="100100" level="8">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4769$</field>
+    <field name="win.eventdata.ticketEncryptionType">^0x17$</field>
+    <description>Kerberoasting: Kerberos service ticket requested with RC4 encryption (T1558.003)</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!--
+    Correlation — 5+ RC4 TGS requests from the same principal within 60s.
+    Sustained volume is the real Kerberoasting tell; a single RC4 TGS may
+    be legitimate, five from one principal in a minute is a sweep.
+    Note: event 4769 exposes the requesting principal as targetUserName
+    (subjectUserName is absent on this event type).
+  -->
+  <rule id="100101" level="12" frequency="5" timeframe="60">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <description>Kerberoasting burst: 5+ RC4 TGS requests from same principal in 60s (T1558.003)</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+  </rule>
+
+</group>
+
+<group name="lab,sysmon,credential_access,attack.T1003_001,">
+
+  <!--
+    T1003.001 — OS Credential Dumping: LSASS Memory.
+    Sysmon Event 10 records ProcessAccess. Credential-dumping tools
+    (mimikatz, impacket-secretsdump, pypykatz, procdump, etc.) open a
+    handle to lsass.exe with access rights that include PROCESS_VM_READ.
+    Common granted-access masks seen in the wild:
+      0x1410, 0x1010   — mimikatz default
+      0x1018, 0x1038   — handle-reuse variants
+      0x143a           — Cobalt Strike mimikatz
+      0x1fffff         — PROCESS_ALL_ACCESS (procdump, task manager)
+    Requires Sysmon deployed on the target with a config that logs
+    Event 10 for lsass.exe (SwiftOnSecurity's sysmon-modular is fine).
+  -->
+  <rule id="100110" level="10">
+    <if_group>sysmon</if_group>
+    <field name="win.system.eventID">^10$</field>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">^(0x1410|0x1010|0x1018|0x1038|0x143a|0x1fffff)$</field>
+    <description>LSASS credential access: high-privilege handle opened on lsass.exe (T1003.001)</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+</group>
+
+<group name="lab,ics,modbus,attack.T0836,">
+
+  <!--
+    T0836 — Modify Parameter (ICS). Modbus write function codes:
+      FC05 (0x05) Write Single Coil
+      FC06 (0x06) Write Single Register
+      FC15 (0x0F) Write Multiple Coils
+      FC16 (0x10) Write Multiple Registers
+
+    Wazuh agents do not see Modbus traffic directly. These rules assume a
+    network sensor (Suricata with the ET/ICS Modbus ruleset, or Zeek with
+    the modbus.log analyzer) is forwarding alerts to Wazuh via the
+    logcollector + json decoder. The regex below targets Suricata-style
+    `alert.signature` text; swap to Zeek's `modbus.function` field if
+    using Zeek JSON logs.
+
+    Without a sensor these rules are dormant (no matching input) but do
+    not break anything. Enable by adding a sensor host whose Suricata
+    eve.json is tailed by a local Wazuh agent.
+  -->
+
+  <rule id="100120" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="alert.signature" type="pcre2">(?i)modbus.*write.*single.*coil</field>
+    <description>Modbus FC05: Write Single Coil observed on OT segment (T0836)</description>
+    <mitre>
+      <id>T0836</id>
+    </mitre>
+  </rule>
+
+  <rule id="100121" level="8">
+    <decoded_as>json</decoded_as>
+    <field name="alert.signature" type="pcre2">(?i)modbus.*write.*single.*register</field>
+    <description>Modbus FC06: Write Single Register observed on OT segment (T0836)</description>
+    <mitre>
+      <id>T0836</id>
+    </mitre>
+  </rule>
+
+  <rule id="100122" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="alert.signature" type="pcre2">(?i)modbus.*write.*multiple.*coils</field>
+    <description>Modbus FC15: Write Multiple Coils observed on OT segment (T0836)</description>
+    <mitre>
+      <id>T0836</id>
+    </mitre>
+  </rule>
+
+  <rule id="100123" level="10">
+    <decoded_as>json</decoded_as>
+    <field name="alert.signature" type="pcre2">(?i)modbus.*write.*multiple.*registers</field>
+    <description>Modbus FC16: Write Multiple Registers observed on OT segment (T0836)</description>
+    <mitre>
+      <id>T0836</id>
+    </mitre>
+  </rule>
+
+</group>

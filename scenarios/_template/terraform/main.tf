@@ -107,8 +107,8 @@ output "access_sheet" {
     scenario      = var.scenario_name
     slot          = var.slot_number
     attacker_ip   = module.attacker.ip_address
-    attacker_user = "kali"
-    attacker_pass = "kali"
+    attacker_user = "labuser"
+    attacker_pass = "labuser"
     # target_ip   = module.target.ip_address
     # plc_ip      = module.plc.ip_address
     red_network   = module.net.red_network

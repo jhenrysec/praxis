@@ -9,9 +9,15 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
-  // noVNC's CJS build uses top-level await — ensure esbuild handles it during dev
+  // noVNC 1.6 ships CJS with top-level await in lib/util/browser.js. esbuild
+  // refuses to `require()` a TLA-bearing module during pre-bundling, so
+  // `optimizeDeps.include` cannot help — the error is in the CJS→CJS require
+  // itself, not in the output format. Exclude it instead so Vite's dev
+  // pipeline handles it on demand (dynamic import in VncViewer defers load
+  // until the /console route runs). Production build still uses
+  // commonjsOptions.exclude + target es2022 below.
   optimizeDeps: {
-    include: ['@novnc/novnc/lib/rfb'],
+    exclude: ['@novnc/novnc'],
     esbuildOptions: {
       supported: { 'top-level-await': true },
     },
@@ -19,6 +25,7 @@ export default defineConfig({
 
   server: {
     port: 3000,
+    host: true, // bind 0.0.0.0 so LAN hosts can reach the dev server
     proxy: {
       // REST API
       '/api': {

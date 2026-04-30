@@ -1,0 +1,17 @@
+---
+# ansible/playbooks/proxmox-bridges.yml
+# Configures Proxmox host bridges beyond the vmbr0-3 baseline.
+# Phase 2 adds vmbr4 (SIEM bridge) for blue-team agent traffic.
+#
+# Usage:
+#   cd ansible
+#   ansible-playbook -i inventory/proxmox.ini playbooks/proxmox-bridges.yml
+#
+# The inventory must define a [proxmox] group with root SSH access.
+
+- name: Configure Proxmox host bridges
+  hosts: proxmox
+  become: true
+  gather_facts: true
+  roles:
+    - proxmox-bridge

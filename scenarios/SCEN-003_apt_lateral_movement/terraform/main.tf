@@ -61,6 +61,7 @@ module "attacker" {
 
   scenario_tag = var.scenario_name
   zone_tag     = "red"
+  slot_number  = var.slot_number
 }
 
 # ── Domain Controller (Blue Zone) ───────────────────────────────────────────
@@ -84,8 +85,15 @@ module "dc01" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 — Windows has no cloud-init; wazuh-agent-windows role
+  # sets the static IP via PowerShell. Kept here so per-slot IP math is in one place.
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 1}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
+  slot_number  = var.slot_number
 }
 
 # ── Workstation 01 — Initial Foothold (Blue Zone) ───────────────────────────
@@ -109,8 +117,13 @@ module "ws01" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 2}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
+  slot_number  = var.slot_number
 }
 
 # ── Workstation 02 — Pivot Target (Blue Zone) ───────────────────────────────
@@ -134,8 +147,13 @@ module "ws02" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 3}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
+  slot_number  = var.slot_number
 }
 
 # ── Outputs ──────────────────────────────────────────────────────────────────
@@ -143,18 +161,18 @@ module "ws02" {
 output "access_sheet" {
   description = "Student access information"
   value = {
-    scenario       = "SCEN-003: APT Lateral Movement"
-    slot           = var.slot_number
-    attacker_ip    = module.attacker.ip_address
-    attacker_user  = "kali"
-    attacker_pass  = "kali"
-    dc01_ip        = module.dc01.ip_address
-    ws01_ip        = module.ws01.ip_address
-    ws02_ip        = module.ws02.ip_address
-    domain         = "lab.local"
-    foothold_user  = "jsmith"
-    foothold_pass  = "Password123"
-    blue_network   = module.net.blue_network
-    objectives     = "See: docs/scenarios/apt_lateral_movement/OBJECTIVES.md"
+    scenario      = "SCEN-003: APT Lateral Movement"
+    slot          = var.slot_number
+    attacker_ip   = module.attacker.ip_address
+    attacker_user = "labuser"
+    attacker_pass = "labuser"
+    dc01_ip       = module.dc01.ip_address
+    ws01_ip       = module.ws01.ip_address
+    ws02_ip       = module.ws02.ip_address
+    domain        = "lab.local"
+    foothold_user = "jsmith"
+    foothold_pass = "Password123"
+    blue_network  = module.net.blue_network
+    objectives    = "See: docs/scenarios/apt_lateral_movement/OBJECTIVES.md"
   }
 }

@@ -1,0 +1,12 @@
+---
+# ansible/playbooks/wazuh-shared.yml
+# Configures the shared Wazuh SIEM fixture.
+# Run after `terraform apply` in terraform/fixtures/wazuh-shared/.
+
+- name: Configure shared Wazuh SIEM
+  hosts: wazuh_shared
+  become: true
+  gather_facts: true
+  roles:
+    - common-linux
+    - wazuh-manager

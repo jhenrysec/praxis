@@ -45,6 +45,13 @@ function parseScenarioYaml(content: string): Record<string, unknown> {
     else if (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value)) {
       value = parseFloat(value);
     }
+    // Strip a matching pair of surrounding quotes. Previously we stored the
+    // literal quoted form (e.g. `"SCEN-001"` with embedded `"` chars), which
+    // round-tripped through the UI and broke resolveScenarioDir.
+    else if (typeof value === 'string') {
+      const m = value.match(/^(['"])(.*)\1$/);
+      if (m) value = m[2];
+    }
 
     result[key] = value;
   }

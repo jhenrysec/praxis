@@ -37,7 +37,17 @@ export interface ApiError {
 
 // ── Slots ──────────────────────────────────────────────────────────────
 
-export type SlotStatus = 'empty' | 'deploying' | 'running' | 'error' | 'destroying';
+export type SlotStatus =
+  | 'empty'
+  | 'deploying'
+  | 'running'
+  | 'stopped'
+  | 'starting'
+  | 'stopping'
+  | 'configuring'
+  | 'resetting'
+  | 'error'
+  | 'destroying';
 
 export interface LabSlot {
   slot_number: number;
@@ -48,6 +58,7 @@ export interface LabSlot {
   deployed_at: string | null;
   last_reset: string | null;
   deploy_log: string | null;
+  last_error: string | null;
 }
 
 // ── VMs ────────────────────────────────────────────────────────────────
@@ -61,6 +72,30 @@ export interface VMInfo {
   maxmem: number;
   uptime: number;
   tags?: string;
+}
+
+// ── Diagnostics ────────────────────────────────────────────────────────
+
+export interface VmDiagnostic {
+  vmid: number;
+  name: string;
+  proxmox_status: string;
+  has_baseline_snapshot: boolean;
+  snapshot_count: number;
+  tags: string[];
+  uptime: number;
+}
+
+export interface SlotDiagnostics {
+  slot_number: number;
+  db_status: SlotStatus;
+  db_scenario_id: string | null;
+  vm_count: number;
+  vms: VmDiagnostic[];
+  orphan_vms: VmDiagnostic[];
+  vms_without_baseline: number[];
+  workspace_expected: string | null;
+  advisories: string[];
 }
 
 // ── Scenarios ──────────────────────────────────────────────────────────

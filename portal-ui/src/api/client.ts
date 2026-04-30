@@ -1,6 +1,7 @@
 import type {
   User, LoginResponse, RegisterResponse, ApiError,
   LabSlot, VMInfo, Scenario, Hint, AuditEntry, Pagination, ObjectiveProgress,
+  SlotDiagnostics,
 } from '../types';
 
 const BASE_URL = '/api';
@@ -196,12 +197,52 @@ class ApiClient {
     return this.request(`/slots/${slot}/reset`, { method: 'POST' });
   }
 
+  async shutdownSlot(slot: number): Promise<{ message: string }> {
+    return this.request(`/slots/${slot}/shutdown`, { method: 'POST' });
+  }
+
+  async startSlot(slot: number): Promise<{ message: string }> {
+    return this.request(`/slots/${slot}/start`, { method: 'POST' });
+  }
+
+  async forceDestroySlot(slot: number): Promise<{ message: string }> {
+    return this.request(`/slots/${slot}/force-destroy`, { method: 'POST' });
+  }
+
+  async getSlotDiagnostics(slot: number): Promise<{ diagnostics: SlotDiagnostics }> {
+    return this.request(`/slots/${slot}/diagnostics`);
+  }
+
   async getSlotVMs(slot: number): Promise<{ vms: VMInfo[] }> {
     return this.request(`/slots/${slot}/vms`);
   }
 
   async deployAll(scenarioId: string): Promise<{ message: string; slots: number[] }> {
     return this.request('/slots/deploy-all', { method: 'POST', body: JSON.stringify({ scenario_id: scenarioId }) });
+  }
+
+  // ── VM lifecycle ─────────────────────────────────────────────────────
+  // Per-VM controls. Routes wait for the Proxmox task before responding so
+  // the UI can refetch slot VMs on resolve. Rollback may take several minutes.
+
+  async startVM(vmId: number): Promise<{ message: string; vmid: number }> {
+    return this.request(`/vms/${vmId}/start`, { method: 'POST' });
+  }
+
+  async shutdownVM(vmId: number): Promise<{ message: string; vmid: number }> {
+    return this.request(`/vms/${vmId}/shutdown`, { method: 'POST' });
+  }
+
+  async stopVM(vmId: number): Promise<{ message: string; vmid: number }> {
+    return this.request(`/vms/${vmId}/stop`, { method: 'POST' });
+  }
+
+  async rebootVM(vmId: number): Promise<{ message: string; vmid: number }> {
+    return this.request(`/vms/${vmId}/reboot`, { method: 'POST' });
+  }
+
+  async rollbackVM(vmId: number): Promise<{ message: string; vmid: number }> {
+    return this.request(`/vms/${vmId}/rollback`, { method: 'POST' });
   }
 
   // ── Scenarios ────────────────────────────────────────────────────────
@@ -268,6 +309,19 @@ class ApiClient {
 
   async getConsoleTicket(vmId: number): Promise<{ ticket: string; wsUrl: string; port: number }> {
     return this.request('/consoles/ticket', { method: 'POST', body: JSON.stringify({ vmId }) });
+  }
+
+  // ── Blue Team SOC ────────────────────────────────────────────────────
+  // Mints a short-lived httpOnly cookie (soc_session) scoped to /api/soc so
+  // the iframe's requests to the Wazuh dashboard are authenticated without
+  // exposing the access token to the framed origin.
+
+  async grantSocAccess(): Promise<{ ok: true; expires_in_seconds: number; dashboard_url: string }> {
+    return this.request('/soc/grant', { method: 'POST' });
+  }
+
+  async revokeSocAccess(): Promise<{ ok: true }> {
+    return this.request('/soc/revoke', { method: 'POST' });
   }
 }
 

@@ -1,0 +1,123 @@
+---
+# ansible/roles/wazuh-manager/tasks/main.yml
+# Installs Wazuh 4.9 all-in-one (Manager + Indexer + Dashboard) via the
+# official wazuh-install.sh -a installer.
+
+- name: "[WAZUH] Check if Wazuh is already installed"
+  ansible.builtin.stat:
+    path: "{{ wazuh_install_marker }}"
+  register: wazuh_existing_install
+
+- name: "[WAZUH] Preflight — verify RAM and vCPU"
+  ansible.builtin.assert:
+    that:
+      - ansible_memtotal_mb >= 7500
+      - ansible_processor_vcpus >= 2
+    fail_msg: >-
+      Wazuh all-in-one needs at least 8GB RAM and 4 vCPU.
+      Detected: {{ ansible_memtotal_mb }}MB RAM, {{ ansible_processor_vcpus }} vCPU.
+  when: not wazuh_existing_install.stat.exists
+
+- name: "[WAZUH] Install installer prerequisites"
+  ansible.builtin.apt:
+    name:
+      - curl
+      - tar
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: not wazuh_existing_install.stat.exists
+
+- name: "[WAZUH] Download wazuh-install.sh ({{ wazuh_version }})"
+  ansible.builtin.get_url:
+    url: "{{ wazuh_install_script_url }}"
+    dest: "{{ wazuh_install_script_path }}"
+    mode: "0750"
+    owner: root
+    group: root
+  when: not wazuh_existing_install.stat.exists
+
+- name: "[WAZUH] Run wazuh-install.sh -a (takes 10-15 minutes)"
+  ansible.builtin.command:
+    cmd: "bash {{ wazuh_install_script_path }} -a"
+    creates: "{{ wazuh_install_marker }}"
+  async: 2400
+  poll: 30
+
+- name: "[WAZUH] Ensure Wazuh services are enabled at boot"
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - wazuh-manager
+    - wazuh-indexer
+    - wazuh-dashboard
+
+- name: "[WAZUH] Extract credentials from wazuh-install-files.tar"
+  ansible.builtin.unarchive:
+    src: "{{ wazuh_credentials_archive }}"
+    dest: /root
+    remote_src: true
+    creates: "{{ wazuh_credentials_extract_dir }}/wazuh-passwords.txt"
+
+- name: "[WAZUH] Lock down credential files (root only)"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop:
+    - "{{ wazuh_credentials_archive }}"
+    - "{{ wazuh_credentials_extract_dir }}/wazuh-passwords.txt"
+
+- name: "[WAZUH] Deploy lab-specific detection rules"
+  ansible.builtin.template:
+    src: local_rules.xml.j2
+    dest: "{{ wazuh_local_rules_path }}"
+    owner: "{{ wazuh_local_rules_owner }}"
+    group: "{{ wazuh_local_rules_group }}"
+    mode: "{{ wazuh_local_rules_mode }}"
+  notify: restart wazuh-manager
+
+# Write every configured enrollment secret, one per line. authd treats each
+# line as an independently valid password, so per-slot secrets can coexist
+# without requiring per-slot VLAN isolation on vmbr4.
+- name: "[WAZUH] Deploy authd enrollment password file"
+  ansible.builtin.copy:
+    content: "{{ wazuh_enrollment_passwords | join('\n') }}\n"
+    dest: "{{ wazuh_authd_pass_path }}"
+    owner: root
+    group: wazuh
+    mode: "0640"
+  when: wazuh_enrollment_passwords | length > 0
+  notify: restart wazuh-manager
+  no_log: true
+
+- name: "[WAZUH] Enable authd password authentication in ossec.conf"
+  ansible.builtin.lineinfile:
+    path: "{{ wazuh_authd_config_path }}"
+    regexp: '^(\s*)<use_password>.*</use_password>'
+    line: '\1<use_password>yes</use_password>'
+    backrefs: true
+  when: wazuh_enrollment_passwords | length > 0
+  notify: restart wazuh-manager
+
+- name: "[WAZUH] Configure dashboard basePath for portal reverse-proxy"
+  ansible.builtin.blockinfile:
+    path: "{{ wazuh_dashboard_config_path }}"
+    marker: "# {mark} ANSIBLE MANAGED — portal reverse-proxy basePath"
+    block: |
+      server.basePath: "{{ wazuh_dashboard_base_path }}"
+      server.rewriteBasePath: true
+    create: false
+  when: wazuh_dashboard_base_path | length > 0
+  notify: restart wazuh-dashboard
+
+- name: "[WAZUH] Summary"
+  ansible.builtin.debug:
+    msg:
+      - "Wazuh {{ wazuh_version }} all-in-one installed."
+      - "Dashboard: https://{{ ansible_host | default(inventory_hostname) }}"
+      - "Credentials file: /root/wazuh-install-files/wazuh-passwords.txt (root-only, 0600)"
+      - "Lab rules: {{ wazuh_local_rules_path }} (Kerberoasting/LSASS/Modbus)"

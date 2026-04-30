@@ -72,8 +72,15 @@ source "proxmox-iso" "windows" {
   winrm_use_ssl  = false
   winrm_insecure = true
 
+  # Sysprep /generalize runs as the final PROVISIONER, not shutdown_command —
+  # proxmox-iso doesn't accept shutdown_command. The build-block provisioner
+  # below uses Start-Process so the session returns before WinRM dies; sysprep
+  # then completes async, strips machine-specific state (SID, hostname, WinRM
+  # config), and shuts the VM down. proxmox-iso detects power-off via the
+  # Proxmox API and converts the VM to a template.
+
   template_name        = local.template_name_win
-  template_description = "Windows Server 2022 Eval — AD/workstation base — Built ${formatdate("YYYY-MM-DD", timestamp())}"
+  template_description = "Windows Server 2022 Eval — AD/workstation base — Built ${formatdate("YYYY-MM-DD", timestamp())} (sysprep'd)"
 }
 
 build {
@@ -151,6 +158,31 @@ build {
       "Optimize-Volume -DriveLetter C -Defrag -ErrorAction SilentlyContinue",
       "",
       "Write-Host 'Template cleanup complete'",
+    ]
+  }
+
+  # ── Stage sysprep Unattend.xml — runs BEFORE the sysprep provisioner ──────
+  # Panther is the conventional staging directory for unattend files. This
+  # file drives the specialize + oobeSystem passes on every CLONE's first
+  # boot — NOT the Packer build. It restores auto-login + WinRM + QEMU-GA
+  # after sysprep /generalize strips them.
+  provisioner "file" {
+    source      = "${path.root}/../http/sysprep-unattend.xml"
+    destination = "C:/Windows/Panther/Unattend.xml"
+  }
+
+  # ── Sysprep — MUST be the LAST provisioner ────────────────────────────────
+  # proxmox-iso doesn't accept shutdown_command, so sysprep runs here. WinRM
+  # dies during generalize — if this PowerShell session waited for sysprep to
+  # finish, Packer's WinRM driver would hang. Start-Process launches sysprep
+  # detached; this session returns 0 after the 5-second sleep, sysprep
+  # continues async, strips machine-specific state, and shuts the VM down.
+  # proxmox-iso detects the power-off via the Proxmox API and converts the
+  # VM to a template.
+  provisioner "powershell" {
+    inline = [
+      "Start-Process -FilePath C:\\Windows\\System32\\Sysprep\\Sysprep.exe -ArgumentList '/generalize','/oobe','/shutdown','/unattend:C:\\Windows\\Panther\\Unattend.xml' -NoNewWindow",
+      "Start-Sleep -Seconds 5",
     ]
   }
 }

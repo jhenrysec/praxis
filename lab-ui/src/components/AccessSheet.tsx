@@ -27,7 +27,8 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function AccessSheet({ slot }: AccessSheetProps) {
-  if (slot.status !== 'running' || slot.vms.length === 0) {
+  const vms = slot.vms ?? [];
+  if (slot.status !== 'running' || vms.length === 0) {
     return (
       <div className="rounded-lg border border-[#1e2228] bg-[#0d1017] p-6 text-center text-sm text-[#4b5563]">
         Deploy a scenario to generate the access sheet.
@@ -50,7 +51,7 @@ export function AccessSheet({ slot }: AccessSheetProps) {
           </tr>
         </thead>
         <tbody>
-          {slot.vms.map((vm) => (
+          {vms.map((vm) => (
             <tr key={vm.vmid} className="border-b border-[#1e2228]/50">
               <td className="py-2 text-[#e6edf3]">{vm.name}</td>
               <td className="py-2">

@@ -1,0 +1,7 @@
+---
+# ansible/roles/wazuh-agent-linux/handlers/main.yml
+
+- name: restart_wazuh_agent
+  ansible.builtin.systemd:
+    name: wazuh-agent
+    state: restarted

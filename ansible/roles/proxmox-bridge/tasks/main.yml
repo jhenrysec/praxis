@@ -1,0 +1,56 @@
+---
+# ansible/roles/proxmox-bridge/tasks/main.yml
+# Adds isolated Linux bridges to a Proxmox host. Idempotent: safe to re-run.
+
+- name: "[BRIDGE] Verify we are running on a Proxmox host"
+  ansible.builtin.stat:
+    path: /usr/bin/pvesh
+  register: pvesh_stat
+  failed_when: not pvesh_stat.stat.exists
+
+- name: "[BRIDGE] Ensure ifupdown2 is installed (Proxmox default, but verify)"
+  ansible.builtin.apt:
+    name: ifupdown2
+    state: present
+    update_cache: false
+  when: ansible_os_family == "Debian"
+
+- name: "[BRIDGE] Append bridge block for each configured bridge"
+  ansible.builtin.blockinfile:
+    path: "{{ proxmox_interfaces_file }}"
+    marker: "# {mark} ANSIBLE-MANAGED BRIDGE {{ item.name }}"
+    block: |
+      auto {{ item.name }}
+      iface {{ item.name }} inet static
+              address {{ item.address }}/{{ item.prefix | default(24) }}
+              bridge-ports {{ item.ports | default('none') }}
+              bridge-stp {{ item.stp | default('off') }}
+              bridge-fd {{ item.fd | default(0) }}
+              # {{ item.comment | default('Lab-managed bridge') }}
+    insertafter: EOF
+    create: false
+  loop: "{{ proxmox_bridges }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.address }}/{{ item.prefix | default(24) }})"
+  notify: reload_networking
+
+- name: "[BRIDGE] Flush handlers so bridges come up before continuing"
+  ansible.builtin.meta: flush_handlers
+
+- name: "[BRIDGE] Verify each bridge is up on the host"
+  ansible.builtin.stat:
+    path: "/sys/class/net/{{ item.name }}"
+  loop: "{{ proxmox_bridges }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: bridge_state
+  failed_when: not bridge_state.stat.exists
+
+- name: "[BRIDGE] Summary"
+  ansible.builtin.debug:
+    msg: |
+      Bridge {{ item.name }} is up: {{ item.address }}/{{ item.prefix | default(24) }}
+      Purpose: {{ item.comment | default('Lab bridge') }}
+  loop: "{{ proxmox_bridges }}"
+  loop_control:
+    label: "{{ item.name }}"

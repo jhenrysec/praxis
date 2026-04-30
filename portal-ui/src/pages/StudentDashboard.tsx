@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useMySlot, useMySlotVMs, useMyObjectives, useMyHints, useCompleteObjective, useMarkHintRead, useScenarioDetail } from '../hooks/useStudent';
 import { StatusBadge } from '../components/shared/StatusBadge';
+import { PerVmControls } from '../components/shared/PerVmControls';
 import {
   BookOpen, Target, Monitor, MessageSquare, CheckCircle2, Circle,
-  Cpu, MemoryStick, Clock, AlertTriangle, Terminal,
+  Cpu, MemoryStick, Clock, AlertTriangle, Terminal, Settings2, ChevronRight,
 } from 'lucide-react';
 import type { VMInfo, ObjectiveProgress, Hint } from '../types';
 
@@ -259,36 +261,58 @@ function VMsPanel({ slotNumber }: { slotNumber: number }) {
 }
 
 function StudentVMRow({ vm }: { vm: VMInfo }) {
+  const [expanded, setExpanded] = useState(false);
   const memPercent = vm.maxmem > 0 ? Math.round((vm.mem / vm.maxmem) * 100) : 0;
   const uptimeStr = formatUptime(vm.uptime);
 
   return (
-    <div className="flex items-center gap-3 bg-[var(--bg-base)] rounded-lg px-3 py-2.5">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm text-[var(--text-primary)] font-medium truncate">{vm.name}</span>
-          <StatusBadge status={vm.status} />
-        </div>
-        <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
-          <span className="flex items-center gap-1">
-            <Cpu className="w-3 h-3" /> {vm.cpu.toFixed(0)}%
-          </span>
-          <span className="flex items-center gap-1">
-            <MemoryStick className="w-3 h-3" /> {memPercent}%
-          </span>
-          <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" /> {uptimeStr}
-          </span>
-        </div>
-      </div>
-      {vm.status === 'running' && (
-        <a
-          href="/console"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00e5a01a] text-[var(--accent-green)] text-xs font-medium hover:bg-[#00e5a02a] transition-colors"
-          aria-label={`Open console for ${vm.name}`}
+    <div className="bg-[var(--bg-base)] rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex-1 flex items-center gap-3 min-w-0 text-left hover:bg-[var(--bg-hover)] -mx-1 px-1 py-1 rounded transition-colors"
+          aria-label={expanded ? `Collapse ${vm.name} controls` : `Expand ${vm.name} controls`}
+          aria-expanded={expanded}
         >
-          <Terminal className="w-3.5 h-3.5" /> Console
-        </a>
+          <ChevronRight
+            className={`w-4 h-4 text-[var(--text-muted)] flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-[var(--text-primary)] font-medium truncate">{vm.name}</span>
+              <StatusBadge status={vm.status} />
+            </div>
+            <div className="flex items-center gap-4 text-xs text-[var(--text-muted)]">
+              <span className="flex items-center gap-1">
+                <Cpu className="w-3 h-3" /> {vm.cpu.toFixed(0)}%
+              </span>
+              <span className="flex items-center gap-1">
+                <MemoryStick className="w-3 h-3" /> {memPercent}%
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {uptimeStr}
+              </span>
+            </div>
+          </div>
+        </button>
+        {vm.status === 'running' && (
+          <a
+            href="/console"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00e5a01a] text-[var(--accent-green)] text-xs font-medium hover:bg-[#00e5a02a] transition-colors flex-shrink-0"
+            aria-label={`Open console for ${vm.name}`}
+          >
+            <Terminal className="w-3.5 h-3.5" /> Console
+          </a>
+        )}
+      </div>
+      {expanded && (
+        <div className="px-3 pb-2.5 pt-0 border-t border-[var(--border-default)] bg-[var(--bg-surface)]">
+          <div className="flex items-center gap-2 mt-2 mb-2">
+            <Settings2 className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <span className="label-mono text-[var(--text-muted)] text-[10px]">VM controls</span>
+          </div>
+          <PerVmControls vm={vm} allowRollback={false} compact />
+        </div>
       )}
     </div>
   );

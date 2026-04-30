@@ -1,0 +1,18 @@
+---
+# ansible/roles/proxmox-bridge/defaults/main.yml
+# Idempotently defines additional Linux bridges on a Proxmox host.
+# Existing bridges (vmbr0-3) are NOT touched — the role only appends
+# marker-delimited blocks for bridges in the list below.
+
+proxmox_bridges:
+  - name: vmbr4
+    address: "192.168.4.1"
+    prefix: 24
+    comment: "Blue-team SIEM bridge — carries wazuh-agent traffic only"
+    # bridge-ports 'none' = isolated L2 segment on the host, no uplink.
+    # All traffic is between VMs that have a NIC on this bridge.
+    ports: "none"
+
+# Path to the Proxmox interfaces file. On Debian-based Proxmox this is
+# also the file Proxmox UI reads/writes, so config is UI-visible after apply.
+proxmox_interfaces_file: /etc/network/interfaces

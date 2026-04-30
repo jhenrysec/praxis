@@ -1,0 +1,31 @@
+---
+# ansible/roles/wazuh-agent-linux/defaults/main.yml
+# Installs Wazuh 4.9 agent on Debian/Ubuntu lab VMs and registers against
+# the shared Wazuh manager on vmbr4.
+
+# Manager reachability (SIEM bridge on vmbr4).
+wazuh_manager_address: "192.168.4.10"
+wazuh_agent_connection_port: 1514
+wazuh_agent_enrollment_port: 1515
+
+# Agent package + repo — pin to 4.9.x to match the manager (shared fixture).
+# Hyphen-delimited version as used by `apt install wazuh-agent=4.9.2-1`.
+wazuh_agent_version: "4.9.2-1"
+wazuh_agent_gpg_key_url: "https://packages.wazuh.com/key/GPG-KEY-WAZUH"
+wazuh_agent_gpg_key_path: /usr/share/keyrings/wazuh.gpg
+wazuh_agent_repo: "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main"
+
+# Slot-scoped agent groups. Callers should override from the scenario
+# inventory so the dashboard can filter by slot + zone + os.
+# Example from inventory:
+#   wazuh_agent_groups:
+#     - "slot-{{ '%02d' | format(slot_number | int) }}"
+#     - "{{ zone_tag }}"     # red | blue | ot
+#     - "linux"
+wazuh_agent_groups:
+  - "default"
+  - "linux"
+
+# Whether agent-auth should replace an existing client.keys if the hostname
+# is already registered. Useful for scenario redeploys.
+wazuh_agent_auth_overwrite: true

@@ -38,3 +38,31 @@
   hosts: vulnerable
   roles:
     - role: ../../../../ansible/roles/vulnerable-services
+
+# Wazuh agent rollout targets only the Windows hosts. The attacker VM is already
+# dual-homed red→blue (two NICs in use) and has no SIEM NIC slot available; it
+# also isn't a detection target for rules 100100/100101 — those fire on DC
+# 4769 events. The per-host SIEM IP is computed inline from `slot_number`
+# (passed by scripts/build as an extra-var) plus a group-membership offset:
+# DC = offset 1, WS = offset 2. For slot 1 this yields 192.168.4.101 / 102.
+- name: "SCEN-002 — Install Wazuh agent on domain hosts (SIEM-connected)"
+  hosts: domain_controllers:workstations
+  vars:
+    _siem_offset: "{{ 1 if inventory_hostname in groups['domain_controllers'] else 2 }}"
+    wazuh_siem_ip_address: "192.168.4.{{ 100 + ((slot_number | int) - 1) * 10 + (_siem_offset | int) }}"
+    wazuh_agent_groups:
+      - "default"
+      - "windows"
+      - "slot-{{ '%02d' | format(slot_number | int) }}"
+  roles:
+    - role: ../../../../ansible/roles/wazuh-agent-windows
+
+# Sysmon feeds rule 100110 (LSASS credential access, T1003.001). The role
+# installs Sysinternals Sysmon with a narrow ProcessAccess-on-lsass config
+# and patches ossec.conf to subscribe the agent to
+# Microsoft-Windows-Sysmon/Operational. Must run after wazuh-agent-windows
+# because the ossec.conf patch targets the installed agent.
+- name: "SCEN-002 — Deploy Sysmon for LSASS detection (rule 100110)"
+  hosts: domain_controllers:workstations
+  roles:
+    - role: ../../../../ansible/roles/sysmon-install

@@ -4,6 +4,7 @@ import type {
   VMStatus,
   DeployRequest,
   DeployResponse,
+  SlotDiagnostics,
 } from '@/types';
 
 const BASE_URL = '/api';
@@ -97,10 +98,57 @@ export async function resetSlot(slot: number): Promise<DeployResponse> {
   return { status: 'started', message: data.message };
 }
 
-// ── WebSocket for terminal output ───────────────────────────────────────────
+export async function shutdownSlot(slot: number): Promise<DeployResponse> {
+  const data = await request<{ message: string; slot_number: number }>(`/slots/${slot}/shutdown`, {
+    method: 'POST',
+  });
+  return { status: 'started', message: data.message };
+}
 
-export function connectDeployStream(
-  _slot: number,
+export async function startSlot(slot: number): Promise<DeployResponse> {
+  const data = await request<{ message: string; slot_number: number }>(`/slots/${slot}/start`, {
+    method: 'POST',
+  });
+  return { status: 'started', message: data.message };
+}
+
+export async function forceDestroySlot(slot: number): Promise<DeployResponse> {
+  const data = await request<{ message: string; slot_number: number }>(`/slots/${slot}/force-destroy`, {
+    method: 'POST',
+  });
+  return { status: 'started', message: data.message };
+}
+
+export async function fetchSlotDiagnostics(slot: number): Promise<SlotDiagnostics> {
+  const data = await request<{ diagnostics: SlotDiagnostics }>(`/slots/${slot}/diagnostics`);
+  return data.diagnostics;
+}
+
+// ── Per-VM lifecycle ────────────────────────────────────────────────────────
+
+export async function startVM(vmId: number): Promise<{ message: string; vmid: number }> {
+  return request(`/vms/${vmId}/start`, { method: 'POST' });
+}
+
+export async function shutdownVM(vmId: number): Promise<{ message: string; vmid: number }> {
+  return request(`/vms/${vmId}/shutdown`, { method: 'POST' });
+}
+
+export async function stopVM(vmId: number): Promise<{ message: string; vmid: number }> {
+  return request(`/vms/${vmId}/stop`, { method: 'POST' });
+}
+
+export async function rebootVM(vmId: number): Promise<{ message: string; vmid: number }> {
+  return request(`/vms/${vmId}/reboot`, { method: 'POST' });
+}
+
+export async function rollbackVM(vmId: number): Promise<{ message: string; vmid: number }> {
+  return request(`/vms/${vmId}/rollback`, { method: 'POST' });
+}
+
+// ── WebSocket status stream ─────────────────────────────────────────────────
+
+export function connectStatusStream(
   onMessage: (data: string) => void,
   onClose?: () => void,
 ): WebSocket {

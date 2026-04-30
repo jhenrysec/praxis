@@ -86,6 +86,12 @@ module "dc01" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 — Windows has no cloud-init; wazuh-agent-windows role
+  # sets the static IP via PowerShell. Kept here so per-slot IP math is in one place.
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 1}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
 }
@@ -135,6 +141,11 @@ module "plc" {
   gateway        = module.net.ot_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 for Wazuh agent reach
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 5}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   scada_role   = "plc"
 }
@@ -156,6 +167,11 @@ module "grfics" {
   ip_address     = "${module.net.ot_prefix}.30"
   gateway        = module.net.ot_gateway
   ssh_public_key = local.ssh_public_key
+
+  # SIEM NIC on vmbr4 for Wazuh agent reach
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 6}"
+  second_prefix_length = 24
 
   scenario_tag = var.scenario_name
   scada_role   = "hmi"
@@ -179,6 +195,11 @@ module "historian" {
   gateway        = module.net.ot_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 for Wazuh agent reach
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 7}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   scada_role   = "historian"
 }
@@ -188,21 +209,21 @@ module "historian" {
 output "access_sheet" {
   description = "Student access information"
   value = {
-    scenario       = "SCEN-004: ICS/OT Pivot — IT to OT Kill Chain"
-    slot           = var.slot_number
-    attacker_ip    = module.attacker.ip_address
-    attacker_user  = "kali"
-    attacker_pass  = "kali"
-    dc01_ip        = module.dc01.ip_address
-    eng_ws_ip      = module.eng_ws.ip_address
-    plc_ip         = module.plc.ip_address
-    grfics_ip      = module.grfics.ip_address
-    historian_ip   = module.historian.ip_address
-    domain         = "lab.local"
-    foothold_user  = "jsmith"
-    foothold_pass  = "Password123"
-    blue_network   = module.net.blue_network
-    ot_network     = module.net.ot_network
-    objectives     = "See: docs/scenarios/ics_ot_pivot/OBJECTIVES.md"
+    scenario      = "SCEN-004: ICS/OT Pivot — IT to OT Kill Chain"
+    slot          = var.slot_number
+    attacker_ip   = module.attacker.ip_address
+    attacker_user = "labuser"
+    attacker_pass = "labuser"
+    dc01_ip       = module.dc01.ip_address
+    eng_ws_ip     = module.eng_ws.ip_address
+    plc_ip        = module.plc.ip_address
+    grfics_ip     = module.grfics.ip_address
+    historian_ip  = module.historian.ip_address
+    domain        = "lab.local"
+    foothold_user = "jsmith"
+    foothold_pass = "Password123"
+    blue_network  = module.net.blue_network
+    ot_network    = module.net.ot_network
+    objectives    = "See: docs/scenarios/ics_ot_pivot/OBJECTIVES.md"
   }
 }

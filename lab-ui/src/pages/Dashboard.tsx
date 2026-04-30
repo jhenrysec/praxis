@@ -20,7 +20,7 @@ export function Dashboard() {
   };
 
   const activeSlots = slots?.filter((s) => s.status === 'running').length ?? 0;
-  const totalVMs = slots?.reduce((sum, s) => sum + s.vms.length, 0) ?? 0;
+  const totalVMs = slots?.reduce((sum, s) => sum + (s.vms?.length ?? 0), 0) ?? 0;
   const errorSlots = slots?.filter((s) => s.status === 'error').length ?? 0;
 
   return (

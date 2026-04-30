@@ -1,0 +1,20 @@
+---
+# ansible/roles/wazuh-manager/handlers/main.yml
+# `restart wazuh-manager` is notified when local_rules.xml is rendered.
+# The indexer/dashboard restarts are kept for future ossec.conf /
+# opensearch.yml config management — not notified today.
+
+- name: restart wazuh-manager
+  ansible.builtin.systemd:
+    name: wazuh-manager
+    state: restarted
+
+- name: restart wazuh-indexer
+  ansible.builtin.systemd:
+    name: wazuh-indexer
+    state: restarted
+
+- name: restart wazuh-dashboard
+  ansible.builtin.systemd:
+    name: wazuh-dashboard
+    state: restarted

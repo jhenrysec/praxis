@@ -84,6 +84,11 @@ module "plc" {
   gateway        = module.net.ot_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 for Wazuh agent reach
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 5}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   scada_role   = "plc"
 }
@@ -106,6 +111,11 @@ module "historian" {
   gateway        = module.net.ot_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 for Wazuh agent reach
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 6}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   scada_role   = "historian"
 }
@@ -115,17 +125,17 @@ module "historian" {
 output "access_sheet" {
   description = "Student access information"
   value = {
-    scenario       = "SCEN-001: SCADA Modbus Recon"
-    slot           = var.slot_number
-    attacker_ip    = module.attacker.ip_address
-    attacker_user  = "kali"
-    attacker_pass  = "kali"
-    plc_ip         = module.plc.ip_address
-    plc_modbus     = "${module.plc.ip_address}:502"
-    plc_web        = "http://${module.plc.ip_address}:8080"
-    historian_ip   = module.historian.ip_address
-    grafana        = "http://${module.historian.ip_address}:3000"
-    ot_network     = module.net.ot_network
-    objectives     = "See: docs/scenarios/scada_modbus_recon/OBJECTIVES.md"
+    scenario      = "SCEN-001: SCADA Modbus Recon"
+    slot          = var.slot_number
+    attacker_ip   = module.attacker.ip_address
+    attacker_user = "labuser"
+    attacker_pass = "labuser"
+    plc_ip        = module.plc.ip_address
+    plc_modbus    = "${module.plc.ip_address}:502"
+    plc_web       = "http://${module.plc.ip_address}:8080"
+    historian_ip  = module.historian.ip_address
+    grafana       = "http://${module.historian.ip_address}:3000"
+    ot_network    = module.net.ot_network
+    objectives    = "See: docs/scenarios/scada_modbus_recon/OBJECTIVES.md"
   }
 }

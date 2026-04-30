@@ -84,6 +84,21 @@ variable "second_bridge" {
   default = ""
 }
 
+variable "second_ip_address" {
+  type    = string
+  default = ""
+}
+
+variable "second_prefix_length" {
+  type    = number
+  default = 24
+}
+
+variable "second_gateway" {
+  type    = string
+  default = ""
+}
+
 variable "prefix_length" {
   type    = number
   default = 24

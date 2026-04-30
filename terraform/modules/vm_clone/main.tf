@@ -33,11 +33,15 @@ resource "proxmox_virtual_environment_vm" "this" {
     dedicated = var.memory_mb
   }
 
-  # Primary disk — inherits template size, can be resized
+  # Primary disk — inherits template size when var.disk_size = 0 (the default).
+  # bpg/proxmox treats null as "use whatever the template carries," so future
+  # template growth (Packer rebuilds, cloud-init resize) never breaks scenarios.
+  # Setting disk_size explicitly is only valid for GROWING the disk past the
+  # template size; bpg/proxmox cannot shrink (Proxmox storage forbids it).
   disk {
     interface    = "scsi0"
     datastore_id = var.datastore
-    size         = var.disk_size
+    size         = var.disk_size > 0 ? var.disk_size : null
     discard      = "on"
     iothread     = true
   }
@@ -74,7 +78,7 @@ resource "proxmox_virtual_environment_vm" "this" {
       trunks       = null
       vlan_id      = null
     },
-  ] : [
+    ] : [
     {
       bridge       = var.network_bridge
       model        = "virtio"
@@ -91,6 +95,8 @@ resource "proxmox_virtual_environment_vm" "this" {
   ]
 
   # Cloud-init configuration (Linux VMs)
+  # Primary ip_config maps to network_device[0]; the dynamic second ip_config
+  # (only emitted when second_ip_address is set) maps to network_device[1].
   dynamic "initialization" {
     for_each = var.cloud_init ? [1] : []
     content {
@@ -100,6 +106,16 @@ resource "proxmox_virtual_environment_vm" "this" {
         ipv4 {
           address = "${var.ip_address}/${var.prefix_length}"
           gateway = var.gateway
+        }
+      }
+
+      dynamic "ip_config" {
+        for_each = var.second_ip_address != "" ? [1] : []
+        content {
+          ipv4 {
+            address = "${var.second_ip_address}/${var.second_prefix_length}"
+            gateway = var.second_gateway != "" ? var.second_gateway : null
+          }
         }
       }
 
@@ -121,6 +137,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   tags = concat(
     [var.scenario_tag, var.zone_tag, "lab"],
+    var.slot_number > 0 ? ["student-slot-${var.slot_number}"] : [],
     var.extra_tags,
   )
 

@@ -62,6 +62,7 @@ module "attacker" {
 
   scenario_tag = var.scenario_name
   zone_tag     = "red"
+  slot_number  = var.slot_number
 }
 
 # ── Domain Controller (Blue Zone) ───────────────────────────────────────────
@@ -85,8 +86,16 @@ module "dc01" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  # SIEM NIC on vmbr4 — no IP config from Terraform because Windows has no
+  # cloud-init; the wazuh-agent-windows role sets the static IP via PowerShell.
+  # Documented here so the per-slot IP math stays in one place.
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 1}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
+  slot_number  = var.slot_number
 }
 
 # ── Domain Workstation (Blue Zone) ──────────────────────────────────────────
@@ -110,8 +119,13 @@ module "ws01" {
   gateway        = module.net.blue_gateway
   ssh_public_key = local.ssh_public_key
 
+  second_bridge        = "vmbr4"
+  second_ip_address    = "192.168.4.${100 + (var.slot_number - 1) * 10 + 2}"
+  second_prefix_length = 24
+
   scenario_tag = var.scenario_name
   zone_tag     = "blue"
+  slot_number  = var.slot_number
 }
 
 # ── Outputs ──────────────────────────────────────────────────────────────────
@@ -119,17 +133,17 @@ module "ws01" {
 output "access_sheet" {
   description = "Student access information"
   value = {
-    scenario       = "SCEN-002: Credential Access — Kerberoasting"
-    slot           = var.slot_number
-    attacker_ip    = module.attacker.ip_address
-    attacker_user  = "kali"
-    attacker_pass  = "kali"
-    dc01_ip        = module.dc01.ip_address
-    ws01_ip        = module.ws01.ip_address
-    domain         = "lab.local"
-    domain_user    = "jsmith"
-    domain_pass    = "Password123"
-    blue_network   = module.net.blue_network
-    objectives     = "See: docs/scenarios/cred_access_kerberoasting/OBJECTIVES.md"
+    scenario      = "SCEN-002: Credential Access — Kerberoasting"
+    slot          = var.slot_number
+    attacker_ip   = module.attacker.ip_address
+    attacker_user = "labuser"
+    attacker_pass = "labuser"
+    dc01_ip       = module.dc01.ip_address
+    ws01_ip       = module.ws01.ip_address
+    domain        = "lab.local"
+    domain_user   = "jsmith"
+    domain_pass   = "Password123"
+    blue_network  = module.net.blue_network
+    objectives    = "See: docs/scenarios/cred_access_kerberoasting/OBJECTIVES.md"
   }
 }

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Post-sysprep unattend file for tpl-win2022 / tpl-win2016 / tpl-win2025 templates.
+
+  Purpose: After Packer finishes provisioning, the template is sysprep'd with
+  /generalize /oobe /shutdown /unattend:C:\Windows\Panther\Unattend.xml.
+  This file drives the specialize + oobeSystem passes that run when each
+  CLONE boots for the first time — not the original Packer build.
+
+  What this file does on every first boot of a clone:
+    specialize pass:
+      - ComputerName = "*"  → Windows auto-generates a random WIN-XXXXXX name.
+        Domain-join Ansible roles rename the machine to dc01-s<slot>,
+        ws01-s<slot>, etc. before the clone reaches a steady state.
+      - Disable Server Manager at logon, enable RDP, suppress the network
+        location discovery prompt (otherwise it blocks WinRM).
+    oobeSystem pass:
+      - AutoLogon as Administrator three times so FirstLogonCommands run.
+      - Skip every OOBE screen (EULA, local account, OEM, online account).
+      - Re-configure WinRM. Sysprep /generalize strips the WinRM listener
+        + firewall rules + service config, so this pass rebuilds them.
+      - Re-install QEMU guest agent if the VirtIO CD is attached at clone
+        time (normally it is not — Terraform doesn't attach a VirtIO ISO).
+        The QEMU-GA service installed during Packer build is preserved
+        through generalize, so this is a best-effort safety net.
+
+  WARNING: Do not set ComputerName to a fixed value here. That would
+  defeat the point of sysprep — every clone would get the same hostname.
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+  <!-- ── Specialize Pass (runs on every clone's first boot) ─────────────── -->
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <ComputerName>*</ComputerName>
+      <TimeZone>Eastern Standard Time</TimeZone>
+    </component>
+
+    <component name="Microsoft-Windows-ServerManager-SvrMgrNc"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <DoNotOpenServerManagerAtLogon>true</DoNotOpenServerManagerAtLogon>
+    </component>
+
+    <component name="Microsoft-Windows-TerminalServices-LocalSessionManager"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS">
+      <fDenyTSConnections>false</fDenyTSConnections>
+    </component>
+
+    <component name="Microsoft-Windows-Deployment"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <RunSynchronous>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Path>cmd /c reg add "HKLM\System\CurrentControlSet\Control\Network\NewNetworkWindowOff" /f</Path>
+        </RunSynchronousCommand>
+      </RunSynchronous>
+    </component>
+  </settings>
+
+  <!-- ── OOBE Pass (runs on every clone's first boot) ───────────────────── -->
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-Shell-Setup"
+               processorArchitecture="amd64"
+               publicKeyToken="31bf3856ad364e35"
+               language="neutral"
+               versionScope="nonSxS"
+               xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+
+      <AutoLogon>
+        <Password>
+          <Value>LabAdmin2024!</Value>
+          <PlainText>true</PlainText>
+        </Password>
+        <Enabled>true</Enabled>
+        <Username>Administrator</Username>
+        <LogonCount>3</LogonCount>
+      </AutoLogon>
+
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideLocalAccountScreen>true</HideLocalAccountScreen>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+        <ProtectYourPC>3</ProtectYourPC>
+      </OOBE>
+
+      <UserAccounts>
+        <AdministratorPassword>
+          <Value>LabAdmin2024!</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+      </UserAccounts>
+
+      <!--
+        Sysprep /generalize strips WinRM config and disables the listener.
+        Rebuild it here so Ansible can reach the clone on first boot.
+        Mirrors the FirstLogonCommands from packer/http/autounattend.xml.
+      -->
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <CommandLine>cmd /c powershell -Command "Set-ExecutionPolicy RemoteSigned -Force"</CommandLine>
+          <Description>Set PowerShell execution policy</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <CommandLine>cmd /c powershell -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private"</CommandLine>
+          <Description>Force all network profiles to Private to allow WinRM</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>3</Order>
+          <CommandLine>cmd /c winrm quickconfig -q</CommandLine>
+          <Description>Configure WinRM listener</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>4</Order>
+          <CommandLine>cmd /c winrm set winrm/config/service @{AllowUnencrypted="true"}</CommandLine>
+          <Description>Allow unencrypted WinRM for Ansible</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>5</Order>
+          <CommandLine>cmd /c winrm set winrm/config/service/auth @{Basic="true"}</CommandLine>
+          <Description>Enable basic auth for WinRM</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>6</Order>
+          <CommandLine>cmd /c netsh advfirewall firewall add rule name="WinRM-HTTP" protocol=TCP dir=in localport=5985 action=allow</CommandLine>
+          <Description>Open firewall for WinRM HTTP</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>7</Order>
+          <CommandLine>cmd /c netsh advfirewall firewall add rule name="WinRM-HTTPS" protocol=TCP dir=in localport=5986 action=allow</CommandLine>
+          <Description>Open firewall for WinRM HTTPS</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>8</Order>
+          <CommandLine>cmd /c powershell -Command "Enable-PSRemoting -Force -SkipNetworkProfileCheck"</CommandLine>
+          <Description>Enable PowerShell Remoting</Description>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>9</Order>
+          <CommandLine>cmd /c sc config QEMU-GA start= auto &amp; sc start QEMU-GA</CommandLine>
+          <Description>Ensure QEMU Guest Agent is running after generalize</Description>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+    </component>
+  </settings>
+
+</unattend>

@@ -1,0 +1,7 @@
+---
+# ansible/roles/sysmon-install/handlers/main.yml
+
+- name: restart WazuhSvc
+  ansible.windows.win_service:
+    name: WazuhSvc
+    state: restarted

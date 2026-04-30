@@ -1,6 +1,7 @@
 ---
 # common-windows defaults
 win_timezone: "Eastern Standard Time"
+lab_org: "MoneyMaker Lab"
 
 # WinRM
 winrm_max_envelope_kb: 8192

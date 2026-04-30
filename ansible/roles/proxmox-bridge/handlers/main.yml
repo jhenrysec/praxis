@@ -1,0 +1,13 @@
+---
+# ansible/roles/proxmox-bridge/handlers/main.yml
+
+- name: reload_networking
+  ansible.builtin.command:
+    cmd: ifreload -a
+  changed_when: false
+  # ifreload is idempotent: re-applies the desired state from
+  # /etc/network/interfaces and brings up anything not already up.
+  # Running it when nothing changed is a no-op, so we suppress the
+  # always-changed signal the command module would otherwise emit.
+  # The task that notifies us already reports the real configuration
+  # change, which is the signal operators should trust.

@@ -7,11 +7,13 @@ import { errorHandler } from './api/middleware/errorHandler.js';
 import { authRouter } from './api/routes/auth.js';
 import { usersRouter } from './api/routes/users.js';
 import { slotsRouter } from './api/routes/slots.js';
+import { vmsRouter } from './api/routes/vms.js';
 import { consolesRouter } from './api/routes/consoles.js';
 import { scenariosRouter } from './api/routes/scenarios.js';
 import { objectivesRouter } from './api/routes/objectives.js';
 import { hintsRouter } from './api/routes/hints.js';
 import { auditRouter } from './api/routes/audit.js';
+import { socRouter } from './api/routes/soc.js';
 
 const app = express();
 
@@ -23,15 +25,28 @@ app.use(
         defaultSrc: ["'self'"],
         connectSrc: ["'self'"],
         scriptSrc: ["'self'"],
+        frameSrc: ["'self'"],
       },
     },
   }),
 );
 
-// CORS — portal-ui origin only
+// CORS — PORTAL_ORIGIN is comma-separated so the portal is reachable from
+// both localhost (dev on the host) and the LAN IP (other machines on the
+// subnet, like Proxmox at 192.168.1.50:8006). credentials: true precludes
+// wildcard, so we match the incoming Origin against the allow-list.
+// Requests without an Origin (curl, server-to-server) pass through — the
+// browser same-origin policy is what matters for the actual credential leak.
+const allowedOrigins = (process.env.PORTAL_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 app.use(
   cors({
-    origin: process.env.PORTAL_ORIGIN || 'http://172.16.0.10:3000',
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   }),
 );
@@ -76,12 +91,14 @@ app.use('/api/auth/refresh', authLimiter);
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/slots', slotsRouter);
+app.use('/api/vms', vmsRouter);
 app.use('/api/consoles/ticket', consoleLimiter);
 app.use('/api/consoles', consolesRouter);
 app.use('/api/scenarios', scenariosRouter);
 app.use('/api/objectives', objectivesRouter);
 app.use('/api/hints', hintsRouter);
 app.use('/api/audit', auditRouter);
+app.use('/api/soc', socRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);

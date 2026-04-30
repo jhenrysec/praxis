@@ -9,6 +9,7 @@ import { SlotManagement } from './pages/SlotManagement';
 import { ScenarioBrowser } from './pages/ScenarioBrowser';
 import { AuditLog } from './pages/AuditLog';
 import { ConsolePage } from './pages/ConsolePage';
+import { BlueTeamSoc } from './pages/BlueTeamSoc';
 import { AppLayout } from './components/shared/AppLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
@@ -88,6 +89,14 @@ export function App() {
         {/* Shared pages */}
         <Route path="/scenarios" element={<ScenarioBrowser />} />
         <Route path="/console" element={<ConsolePage />} />
+        <Route
+          path="/soc"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'instructor']}>
+              <BlueTeamSoc />
+            </ProtectedRoute>
+          }
+        />
       </Route>
 
       {/* Catch-all redirect */}

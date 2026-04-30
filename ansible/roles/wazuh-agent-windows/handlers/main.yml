@@ -1,0 +1,6 @@
+---
+# ansible/roles/wazuh-agent-windows/handlers/main.yml
+# Service restarts are handled inline in tasks/main.yml (post-MSI-change)
+# because the state must be restarted exactly once after install, and
+# downstream roles may not run a flush_handlers before they need the
+# agent to be reporting.

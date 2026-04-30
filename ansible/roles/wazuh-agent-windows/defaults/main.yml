@@ -1,0 +1,21 @@
+---
+# ansible/roles/wazuh-agent-windows/defaults/main.yml
+# Installs Wazuh 4.9 agent on Windows Server/desktop lab VMs and registers
+# against the shared Wazuh manager on vmbr4.
+
+# Manager reachability (SIEM bridge on vmbr4).
+wazuh_manager_address: "192.168.4.10"
+wazuh_agent_connection_port: 1514
+wazuh_agent_enrollment_port: 1515
+
+# MSI pin. Keep in lockstep with wazuh-agent-linux so Windows and Linux
+# agents report the same schema version to the manager.
+wazuh_agent_version: "4.9.2-1"
+wazuh_agent_msi_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_agent_version }}.msi"
+wazuh_agent_msi_staging: 'C:\Windows\Temp\wazuh-agent.msi'
+wazuh_agent_install_dir: 'C:\Program Files (x86)\ossec-agent'
+
+# Slot-scoped agent groups. Override from inventory per scenario.
+wazuh_agent_groups:
+  - "default"
+  - "windows"

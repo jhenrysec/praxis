@@ -1,0 +1,161 @@
+---
+# ansible/roles/wazuh-agent-windows/tasks/main.yml
+
+# The Windows template has no cloud-init, so the second NIC attached by
+# Terraform (vmbr4 in dual-homed scenarios) comes up with no IPv4. The
+# block below assigns the static SIEM IP on the un-configured adapter.
+# Skipped entirely when `wazuh_siem_ip_address` is unset — keeps the role
+# usable for single-NIC hosts and for future non-dual-homed scenarios.
+
+- name: "[WAZUH-AGENT-WIN] Configure static IP on SIEM-facing NIC"
+  ansible.windows.win_shell: |
+    $ErrorActionPreference = 'Stop'
+    $targetIp = "{{ wazuh_siem_ip_address }}"
+    $prefix   = [int]"{{ wazuh_siem_prefix_length | default(24) }}"
+
+    $existing = Get-NetIPAddress -IPAddress $targetIp -ErrorAction SilentlyContinue
+    if ($existing) { Write-Output "already-configured"; exit 0 }
+
+    $candidates = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
+    foreach ($adapter in $candidates) {
+        $ips = Get-NetIPAddress -InterfaceIndex $adapter.ifIndex `
+                                -AddressFamily IPv4 `
+                                -ErrorAction SilentlyContinue
+        $real = $ips | Where-Object {
+            $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -ne '127.0.0.1'
+        }
+        if (-not $real) {
+            New-NetIPAddress -InterfaceIndex $adapter.ifIndex `
+                             -IPAddress $targetIp `
+                             -PrefixLength $prefix `
+                             -ErrorAction Stop | Out-Null
+            Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -Dhcp Disabled | Out-Null
+            Write-Output "configured-$($adapter.Name)"
+            exit 0
+        }
+    }
+    throw "No unconfigured adapter found for SIEM IP $targetIp"
+  register: wazuh_agent_siem_nic
+  changed_when: "'configured-' in (wazuh_agent_siem_nic.stdout | default(''))"
+  when: wazuh_siem_ip_address | default('') | length > 0
+
+- name: "[WAZUH-AGENT-WIN] Verify Wazuh manager reachability on SIEM NIC"
+  ansible.windows.win_shell: |
+    $ok = $false
+    $port = [int]"{{ wazuh_agent_connection_port }}"
+    for ($i=0; $i -lt 30; $i++) {
+        $r = Test-NetConnection -ComputerName "{{ wazuh_manager_address }}" `
+                                -Port $port `
+                                -WarningAction SilentlyContinue `
+                                -InformationLevel Quiet
+        if ($r) { $ok = $true; break }
+        Start-Sleep -Seconds 2
+    }
+    if (-not $ok) {
+        throw "Wazuh manager {{ wazuh_manager_address }}:$port unreachable after 60s. Check vmbr4 attachment and SIEM NIC IP."
+    }
+  changed_when: false
+  when: wazuh_siem_ip_address | default('') | length > 0
+
+- name: "[WAZUH-AGENT-WIN] Verify agent MSI staging directory exists"
+  ansible.windows.win_file:
+    path: 'C:\Windows\Temp'
+    state: directory
+
+- name: "[WAZUH-AGENT-WIN] Download Wazuh agent MSI"
+  ansible.windows.win_get_url:
+    url: "{{ wazuh_agent_msi_url }}"
+    dest: "{{ wazuh_agent_msi_staging }}"
+    force: false
+
+# The MSI performs registration itself when WAZUH_* properties are supplied,
+# so a separate agent-auth step is NOT required on Windows. This is the
+# pattern Wazuh publishes in their official deployment docs for 4.9.x.
+- name: "[WAZUH-AGENT-WIN] Install wazuh-agent MSI with manager config"
+  ansible.windows.win_package:
+    path: "{{ wazuh_agent_msi_staging }}"
+    state: present
+    arguments:
+      - "/q"
+      - 'WAZUH_MANAGER="{{ wazuh_manager_address }}"'
+      - 'WAZUH_REGISTRATION_SERVER="{{ wazuh_manager_address }}"'
+      - 'WAZUH_REGISTRATION_PORT="{{ wazuh_agent_enrollment_port }}"'
+      - 'WAZUH_AGENT_GROUP="{{ wazuh_agent_groups | join('','') }}"'
+      - 'WAZUH_AGENT_NAME="{{ inventory_hostname }}"'
+    creates_path: "{{ wazuh_agent_install_dir }}\\ossec.conf"
+  register: wazuh_agent_msi_install
+
+- name: "[WAZUH-AGENT-WIN] Open outbound Wazuh agent ports on Windows Firewall"
+  community.windows.win_firewall_rule:
+    name: "Wazuh Agent — outbound to manager"
+    direction: out
+    action: allow
+    protocol: tcp
+    remote_ip: "{{ wazuh_manager_address }}"
+    remote_port: "{{ wazuh_agent_connection_port }},{{ wazuh_agent_enrollment_port }}"
+    enabled: true
+    state: present
+  register: wazuh_fw_rule
+  failed_when:
+    - wazuh_fw_rule is failed
+    - "'already exists' not in (wazuh_fw_rule.msg | default(''))"
+  # Outbound is typically allowed by default on Windows Server; this rule
+  # is belt-and-suspenders for scenarios that harden outbound policy.
+  # Previously wrapped in `ignore_errors: true` which silently swallowed
+  # real failures (collection missing, permission denied). `failed_when`
+  # now only tolerates the benign idempotent-create case.
+
+- name: "[WAZUH-AGENT-WIN] Read current agent group marker"
+  ansible.windows.win_shell: |
+    $marker = "{{ wazuh_agent_install_dir }}\ansible-managed-groups.txt"
+    if (Test-Path $marker) { (Get-Content -Raw $marker).Trim() } else { "" }
+  register: wazuh_agent_group_state
+  changed_when: false
+
+# The MSI's WAZUH_AGENT_GROUP property is only evaluated at first install
+# (gated on `creates_path: ossec.conf`). To apply group changes after the
+# initial deployment, re-enroll with agent-auth using the updated group
+# list. The marker file below records the last-applied set so this is a
+# no-op when nothing changed.
+- name: "[WAZUH-AGENT-WIN] Re-enroll agent when group set has changed"
+  ansible.windows.win_shell: |
+    & "{{ wazuh_agent_install_dir }}\agent-auth.exe" `
+      -m "{{ wazuh_manager_address }}" `
+      -p {{ wazuh_agent_enrollment_port }} `
+      -G "{{ wazuh_agent_groups | join(',') }}" `
+      -A "{{ inventory_hostname }}"
+  register: wazuh_agent_reenroll
+  when:
+    - not wazuh_agent_msi_install.changed
+    - (wazuh_agent_group_state.stdout | default('') | trim) != (wazuh_agent_groups | join(','))
+
+- name: "[WAZUH-AGENT-WIN] Record applied group marker"
+  ansible.windows.win_copy:
+    content: "{{ wazuh_agent_groups | join(',') }}\n"
+    dest: "{{ wazuh_agent_install_dir }}\\ansible-managed-groups.txt"
+  when: >-
+    wazuh_agent_msi_install.changed
+    or (wazuh_agent_reenroll is defined and wazuh_agent_reenroll is changed)
+
+- name: "[WAZUH-AGENT-WIN] Ensure WazuhSvc is running and set to automatic start"
+  ansible.windows.win_service:
+    name: WazuhSvc
+    state: started
+    start_mode: auto
+  register: wazuh_svc_state
+
+- name: "[WAZUH-AGENT-WIN] Restart WazuhSvc after MSI reinstall or group change"
+  ansible.windows.win_service:
+    name: WazuhSvc
+    state: restarted
+  when: >-
+    wazuh_agent_msi_install.changed
+    or (wazuh_agent_reenroll is defined and wazuh_agent_reenroll is changed)
+
+- name: "[WAZUH-AGENT-WIN] Installation summary"
+  ansible.builtin.debug:
+    msg: |
+      Wazuh agent installed: {{ wazuh_agent_version }}
+      Manager: {{ wazuh_manager_address }}
+      Groups:  {{ wazuh_agent_groups | join(', ') }}
+      Service: {{ wazuh_svc_state.state | default('unknown') }}

@@ -10,6 +10,7 @@ import {
   Terminal,
   Settings,
   ScrollText,
+  Eye,
 } from 'lucide-react';
 
 interface NavItem {
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Audit Log', path: '/admin/audit', icon: <ScrollText className="w-5 h-5" />, roles: ['admin'] },
   { label: 'Scenarios', path: '/scenarios', icon: <BookOpen className="w-5 h-5" />, roles: ['admin', 'instructor', 'student'] },
   { label: 'Console', path: '/console', icon: <Terminal className="w-5 h-5" />, roles: ['admin', 'instructor', 'student'] },
+  { label: 'Blue Team SOC', path: '/soc', icon: <Eye className="w-5 h-5" />, roles: ['admin', 'instructor'] },
 ];
 
 export function AppLayout() {

@@ -31,7 +31,12 @@ sources:
     checksum_url: "https://releases.ubuntu.com/{version}/SHA256SUMS"
     filename_pattern: "ubuntu-{version}-live-server-amd64.iso"
     auto_download: true
-    notes: "Free download. Use live-server ISO for cloud-init support."
+    notes: >
+      Free download. Use live-server ISO for cloud-init support.
+      Current LTS versions for enterprise baselines:
+        24.04.4  — noble (current LTS, supported through 2029)
+        22.04.5  — jammy (still widely deployed, supported through 2027)
+        20.04.6  — focal (legacy scenarios, ESM through 2030)
 
   ubuntu-desktop:
     display_name: "Ubuntu Desktop"
@@ -71,6 +76,23 @@ sources:
     filename_pattern: "Fedora-Server-dvd-x86_64-{version}.iso"
     auto_download: true
     notes: "Free download."
+
+  rhel:
+    display_name: "Red Hat Enterprise Linux (Developer Subscription)"
+    url_pattern: ""
+    filename_pattern: "rhel-{version}-x86_64-dvd.iso"
+    auto_download: false
+    notes: >
+      RHEL requires a free Red Hat Developer Subscription (up to 16 hosts)
+      at developers.redhat.com/products/rhel/download. Sign in with your
+      Red Hat account, accept the agreement, and download the Binary DVD ISO.
+      After upload, Packer can consume it like any other Linux ISO — use
+      Kickstart (ks.cfg) for unattended install via OEMDRV CD or HTTP.
+      Current versions for enterprise baselines:
+        9.5  — current release (GA 2024-11, support through 2032)
+        8.10 — RHEL 8 final minor (maintenance through 2029, ESM through 2031)
+      Prefer Rocky/Alma for fully-unattended scenarios — identical binaries,
+      no login gate, no activation step.
 
   alpine:
     display_name: "Alpine Linux"
@@ -156,6 +178,18 @@ sources:
 
   # ── Windows (always manual) ────────────────────────────────────────────────
 
+  windows-server-2025:
+    display_name: "Windows Server 2025 Evaluation"
+    url_pattern: ""
+    filename_pattern: "WINSERVER-2025-EVAL_x64FRE_en-us.iso"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-server-2025
+      Requires form submission. 180-day evaluation license.
+      First LTSC Windows Server release of 2024 — current flagship for new
+      enterprise baselines. Hotpatch support, faster SMB, Active Directory
+      improvements over 2022.
+
   windows-server-2022:
     display_name: "Windows Server 2022 Evaluation"
     url_pattern: ""
@@ -173,6 +207,18 @@ sources:
     notes: >
       Download from: microsoft.com/en-us/evalcenter/evaluate-windows-server-2019
       Use for scenarios requiring older Windows Server versions.
+
+  windows-server-2016:
+    display_name: "Windows Server 2016 Evaluation"
+    url_pattern: ""
+    filename_pattern: "14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO"
+    auto_download: false
+    notes: >
+      Download from: microsoft.com/en-us/evalcenter/evaluate-windows-server-2016
+      Requires form submission. 180-day evaluation license.
+      Still in enterprise use for legacy AD forests and 2012→2016 upgrade
+      paths. Extended support ends 2027-01-12. Pair with autounattend.xml
+      tuned for the older Server Manager and pre-PowerShell 5.1 baselines.
 
   windows-10:
     display_name: "Windows 10 Enterprise Evaluation"

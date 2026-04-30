@@ -72,8 +72,8 @@ variable "memory_mb" {
 
 variable "disk_size" {
   type        = number
-  default     = 40
-  description = "Root disk size in GB"
+  default     = 0
+  description = "Root disk size in GB. 0 = inherit from template (recommended). Set explicitly only when growing past template size; cannot shrink below template."
 }
 
 variable "datastore" {
@@ -124,8 +124,32 @@ variable "second_bridge" {
   description = "Optional second NIC bridge for dual-homed VMs"
 }
 
+variable "second_ip_address" {
+  type        = string
+  default     = ""
+  description = "Static IPv4 for the second NIC. Empty = second NIC left unconfigured by cloud-init."
+}
+
+variable "second_prefix_length" {
+  type        = number
+  default     = 24
+  description = "CIDR prefix length for second NIC IP"
+}
+
+variable "second_gateway" {
+  type        = string
+  default     = ""
+  description = "Gateway for second NIC. Empty = no gateway (primary NIC carries default route — usual case for dual-homed VMs)."
+}
+
 variable "extra_tags" {
   type        = list(string)
   default     = []
   description = "Additional tags to apply to the VM"
+}
+
+variable "slot_number" {
+  type        = number
+  default     = 0
+  description = "Lab slot number (1-20). When > 0, adds student-slot-N tag consumed by portal-backend Proxmox filters. Leave 0 for non-slot fixtures (e.g., shared SIEM)."
 }

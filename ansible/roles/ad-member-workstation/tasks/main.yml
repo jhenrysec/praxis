@@ -7,7 +7,7 @@
   ansible.windows.win_dns_client:
     adapter_names: "*"
     dns_servers:
-      - "{{ hostvars[groups['domain_controllers'][0]]['ansible_host'] | default(ad_dc_ip) }}"
+      - "{{ ad_dc_ip | default(hostvars[groups['domain_controllers'][0]]['ansible_host'] | default(groups['domain_controllers'][0])) }}"
   when: ad_dc_ip is defined or (groups['domain_controllers'] is defined and groups['domain_controllers'] | length > 0)
 
 - name: "[AD-MEMBER] Join domain"

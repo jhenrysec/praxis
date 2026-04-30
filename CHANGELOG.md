@@ -11,6 +11,553 @@ Types: `ADD` | `CHANGE` | `FIX` | `REMOVE` | `SECURITY` | `DOCS`
 
 *(Entries move here first, then to a dated section on release/phase completion)*
 
+## [2026-04-22] — INFRA_AGENT — FIX — Windows Packer templates: sysprep /generalize as final provisioner (Task #49)
+
+Fixes two observable symptoms traced to the same root cause — the Windows
+templates (tpl-win2016, tpl-win2022, tpl-win2025) were never sysprep-generalized
+before conversion to Proxmox templates, so every clone inherited the template's
+machine SID, hostname (`WIN-TEMPLATE`), and WinRM config.
+
+### Symptoms this fixes
+- **SID duplication** blocked PtH/WinRM lateral movement in SCEN-003 validation
+  (see 2026-04-07 entry) — all workstation clones from tpl-win2022 shared the
+  same machine SID, so hash-based auth between workstations was rejected.
+- **Sysmon reports `WIN-TEMPLATE.lab.local`** on dc01 during the SCEN-002 rule
+  100110 validation (see 2026-04-22 sysmon-install entry) — computer name
+  comes from the unsysprep'd template, not the clone's assigned hostname.
+
+### Root cause
+proxmox-iso does not accept `shutdown_command` / `shutdown_timeout`, so the
+typical Packer pattern of driving sysprep via shutdown_command doesn't apply.
+The original templates simply ran the last provisioner and let Packer power
+the VM off via the Proxmox API — no sysprep, no generalize.
+
+### Fix — pattern applied identically across all three templates
+- `source "proxmox-iso"` block: removed the invalid `shutdown_command` /
+  `shutdown_timeout` comment; replaced with a forward-pointer comment
+  explaining that sysprep now runs as the final `build` provisioner.
+- `build` block: appended two new provisioners at the end —
+  1. `file` provisioner stages `${path.root}/../http/sysprep-unattend.xml`
+     to `C:/Windows/Panther/Unattend.xml` (Panther is the conventional
+     staging directory). This file drives the specialize + oobeSystem
+     passes on every CLONE's first boot — NOT during the Packer build.
+  2. `powershell` provisioner runs
+     `Start-Process -FilePath C:\Windows\System32\Sysprep\Sysprep.exe -ArgumentList '/generalize','/oobe','/shutdown','/unattend:C:\Windows\Panther\Unattend.xml' -NoNewWindow`
+     followed by `Start-Sleep -Seconds 5`. `Start-Process` launches sysprep
+     detached so the PowerShell session returns 0 before WinRM dies during
+     `/generalize`. sysprep completes async, strips machine-specific state
+     (SID, hostname, WinRM config), and powers the VM off. proxmox-iso
+     detects the power-off and converts the VM to a template.
+
+### Post-sysprep behavior on clone first boot
+`packer/http/sysprep-unattend.xml` was already present and drives the
+specialize + oobeSystem passes on every clone's first boot:
+- `ComputerName=*` → Windows auto-generates a random `WIN-XXXXXX`; domain-join
+  Ansible roles rename to `dc01-s<slot>`, `ws01-s<slot>`, etc.
+- Rebuilds WinRM listener + firewall rules (sysprep /generalize strips them).
+- Restores QEMU Guest Agent auto-start (service is preserved through
+  /generalize — this is a best-effort safety net).
+- AutoLogon as Administrator for 3 boots so FirstLogonCommands fire.
+
+### Validation
+- `packer validate -var-file=/tmp/validate.pkrvars.hcl -only='proxmox-iso.win2016,proxmox-iso.windows,proxmox-iso.win2025' packer/templates/`
+  → "The configuration is valid."
+
+### Deploy step still required
+- Rebuild tpl-win2016 / tpl-win2022 / tpl-win2025 on pve01 (~30–45 min each).
+  Existing clones from the unsysprep'd templates will continue to exhibit
+  SID-duplication and `WIN-TEMPLATE` hostname symptoms until destroyed and
+  redeployed from the rebuilt templates.
+
+## [2026-04-22] — INFRA_AGENT + BACKEND_AGENT — FIX — Wazuh dashboard basePath alignment for /api/soc reverse proxy (Task #54)
+
+Closes the follow-up called out in the Phase 3 SIEM entry: the Wazuh dashboard
+(OpenSearch Dashboards fork) emits absolute `/app/...` URLs in its SPA bundles,
+so deep routes escaped the portal's `/api/soc` mount point. Fixed via a
+coordinated two-side change — the origin is now told where it's mounted, and
+the proxy stops rewriting the prefix.
+
+### Changed — ansible/roles/wazuh-manager
+- `tasks/main.yml` — new `blockinfile` task writes
+  `server.basePath: "/api/soc"` + `server.rewriteBasePath: true` into
+  `/etc/wazuh-dashboard/opensearch_dashboards.yml`, guarded by
+  `when: wazuh_dashboard_base_path | length > 0` so setting the var to `""`
+  leaves the dashboard at the origin root. Notifies `restart wazuh-dashboard`
+  only when the block actually changes.
+- `defaults/main.yml` — already carried `wazuh_dashboard_base_path: "/api/soc"`
+  and `wazuh_dashboard_config_path: /etc/wazuh-dashboard/opensearch_dashboards.yml`
+  from the Phase 2 prep; values unchanged, now actually consumed.
+
+### Changed — portal-backend
+- `src/api/routes/soc.ts` — removed `pathRewrite: { '^/api/soc': '' }` from the
+  `createProxyMiddleware` options. With `server.basePath` set, the Wazuh origin
+  expects the prefix to reach it intact; stripping it would produce 404s on
+  every request once the origin is reconfigured. Added an inline comment
+  explaining the coordination with the Ansible role so a future reader doesn't
+  "fix" it back to rewriting.
+- `tsc --noEmit` — zero errors.
+
+### Validation performed this session
+- Wazuh manager reachable: dashboard returns 302 at `/` and 200 at `/app/login`.
+- Both agents enrolled and `Active`: `dc01` (id 001), `ws01` (id 002) — verified
+  via `sudo /var/ossec/bin/agent_control -l` on wazuh-shared.
+- End-to-end rule fire test: `impacket-GetUserSPNs LAB.LOCAL/jsmith -dc-ip
+  10.10.2.20 -request` from kali-attacker-s1 returned 2 RC4 TGS tickets
+  (svc_sql, svc_backup). `alerts.json` on wazuh-shared shows 2 matching
+  level-8 hits on rule `100100` with `targetUserName=jsmith@LAB.LOCAL` at
+  `2026-04-22T09:18:30`. Rule `100101` correctly did not fire (threshold is
+  5+ in 60s; only 2 SPNs exist).
+
+### Deploy step still required
+- Run `ansible-playbook ansible/playbooks/wazuh-shared.yml` to push the
+  basePath block and restart `wazuh-dashboard`.
+- Rebuild + restart portal-backend so the pathRewrite removal takes effect.
+- Until both are deployed together, the `/api/soc` iframe path is expected
+  to misroute — the two halves are coupled by design.
+
+## [2026-04-22] — BACKEND_AGENT + FRONTEND_AGENT — ADD — Phase 3 SIEM: Portal reverse proxy + Blue Team SOC button
+
+Phase 3 of the blue-team SIEM architecture. Instructors and admins can now
+open the Wazuh dashboard directly from the portal via a JWT-gated reverse
+proxy, eliminating the cross-origin mixed-content path that required
+analysts to hit `https://192.168.1.60` in a separate tab and accept the
+self-signed cert manually.
+
+### Architecture
+- portal-backend at `/api/soc/*` reverse-proxies to
+  `https://192.168.1.60` (configurable via `WAZUH_DASHBOARD_URL`)
+- Access gated by the same JWT that protects every other `/api` route,
+  plus a role check for `admin` / `instructor`
+- Self-signed-cert handling isolated to the backend (`secure: false` on
+  the proxy) so browsers never see the untrusted cert
+- Wazuh's anti-framing headers (`X-Frame-Options`, CSP
+  `frame-ancestors`) are stripped from proxy responses so portal-ui can
+  mount the dashboard in an iframe
+
+### Added — portal-backend
+- `src/api/routes/soc.ts` — new route module with three handlers:
+  - `POST /api/soc/grant` (authenticate + requireRole admin/instructor):
+    mints a short-lived JWT with `scope: 'soc'` and installs it as an
+    httpOnly cookie `soc_session` scoped to `/api/soc`. Audit-logged
+    as `soc_access_granted`. Returns `{ ok, expires_in_seconds,
+    dashboard_url }`. Session length via
+    `SOC_SESSION_EXPIRES_MIN` (default 60 min).
+  - `POST /api/soc/revoke` (authenticate): clears the cookie.
+  - `ALL /api/soc/*` (authenticateSoc + proxy): the reverse proxy.
+    Custom `authenticateSoc` middleware accepts either a Bearer header
+    (normal API flow) OR the `soc_session` cookie (iframe/tab
+    navigation flow, where the browser can't inject Authorization
+    headers). Validates the user is still active and still has
+    admin/instructor.
+  - http-proxy-middleware v3 `on:` event bag:
+    - `proxyRes`: strips `x-frame-options`, filters
+      `frame-ancestors` out of the CSP, rewrites `Location:` redirects
+      so the SPA stays under `/api/soc`.
+    - `error`: returns a 502 JSON body if Wazuh is unreachable.
+  - `ws: false` — statusBroadcast already owns the HTTP server's
+    `upgrade` event for `/ws/status`. Wazuh dashboard polls over
+    HTTPS for most real-time state, so dropping WebSocket proxying is
+    acceptable for MVP. Enabling later requires explicit upgrade
+    dispatch in `src/index.ts`.
+- `src/app.ts` — mounted `socRouter` at `/api/soc`; extended helmet
+  CSP `directives` with `frameSrc: ["'self'"]` so portal-ui can iframe
+  same-origin `/api/soc/`.
+
+### Added — portal-ui
+- `src/pages/BlueTeamSoc.tsx` — new page that:
+  - Calls `apiClient.grantSocAccess()` on mount to set the cookie
+  - Renders `<iframe src="/api/soc/">` filling the remaining viewport
+  - Controls: Refresh (remint cookie), Open-in-tab (same path), and
+    Fullscreen (Fullscreen API)
+  - Connection-state overlay while granting; error card with retry
+    button on failure
+  - Displays `session expires in Nm` countdown
+  - Revokes the cookie on unmount (best-effort)
+  - iframe sandbox:
+    `allow-same-origin allow-scripts allow-forms allow-popups allow-downloads`
+- `src/api/client.ts` — added `grantSocAccess()` and `revokeSocAccess()`
+  methods alongside the existing console API.
+- `src/components/shared/AppLayout.tsx` — added "Blue Team SOC" nav
+  item with `Eye` icon, gated to `['admin', 'instructor']` via the
+  existing role-filter mechanism.
+- `src/App.tsx` — added `<Route path="/soc">` wrapped in
+  `<ProtectedRoute allowedRoles={['admin', 'instructor']}>` so
+  students cannot reach the page even with a direct URL.
+
+### Known limitation (tracked as follow-up)
+- Wazuh dashboard is an OpenSearch Dashboards fork and emits absolute
+  URLs like `/app/wazuh/...` in its HTML and JS bundles. `pathRewrite`
+  on the proxy strips the `/api/soc` prefix for outbound requests but
+  does not rewrite Wazuh's response content. The login page and
+  top-level navigation proxy correctly; deep SPA routes may escape
+  the `/api/soc` mount. Configuring
+  `server.basePath: /api/soc` + `server.rewriteBasePath: true` in
+  `/etc/wazuh-dashboard/opensearch_dashboards.yml` resolves this and
+  is filed as a separate task for the next Ansible update to the
+  wazuh-manager role.
+
+### Build verification
+- portal-backend: `npx tsc --noEmit` — zero errors
+- portal-ui: `npx tsc --noEmit` — zero errors; `vite build` — 299KB
+  main JS + 68KB noVNC + 22KB CSS, 1596 modules, 4.78s, zero warnings
+
+## [2026-04-22] — INFRA_AGENT — ADD — sysmon-install role + rule 100110 live-fire validation
+
+### Added — Sysmon Ansible role
+- `ansible/roles/sysmon-install/` — installs Sysinternals Sysmon 15.x on
+  Windows hosts and subscribes the Wazuh agent to the
+  `Microsoft-Windows-Sysmon/Operational` eventchannel. Idempotent by design:
+  the full download/unzip/install chain is gated on a `win_service_info`
+  check for the `Sysmon64` service (no-op on re-run), config deltas are
+  applied via `Sysmon64.exe -c config.xml`, and the ossec.conf patch is
+  guarded by a literal marker comment so multiple runs cannot append
+  duplicate `<localfile>` blocks. A `restart WazuhSvc` handler fires only
+  when the ossec.conf patch actually changes.
+- `files/sysmon-config.xml` — minimal schema-4.90 config. Single rule:
+  `ProcessAccess onmatch=include` with `TargetImage end-with lsass.exe`.
+  Intentionally narrow — just enough to feed rule 100110 without swamping
+  the manager with ProcessCreate / NetworkConnect volume. Adding more
+  EventIDs here is the path to expanding Sysmon-backed rule coverage.
+- `ansible/roles/sysmon-install/defaults/main.yml` — tunables for Sysmon
+  zip URL, staging/install dirs, binary name, service name, and the
+  Wazuh agent ossec.conf path (mirrors wazuh-agent-windows role default).
+- `SCEN-002/ansible/playbooks/kerberoasting.yml` — appended a new play
+  "Deploy Sysmon for LSASS detection (rule 100110)" targeting
+  `domain_controllers:workstations`. Ordered after wazuh-agent-windows
+  because the ossec.conf patch targets the installed agent.
+
+### Detection rule pack — status after this session
+- **100100** (single RC4 TGS, T1558.003): validated 2026-04-20 (7 hits)
+- **100101** (5+ TGS/60s correlation, T1558.003): validated 2026-04-20
+  (1 level-12 alert after `same_field: targetUserName` fix)
+- **100110** (LSASS ProcessAccess, T1003.001): validated 2026-04-22.
+  `rundll32 C:\Windows\System32\comsvcs.dll MiniDump <PID> lsass.dmp full`
+  on ws01 produced GrantedAccess=0x1fffff (PROCESS_ALL_ACCESS) plus a
+  0x1410 handle from the rundll32 parent. Alerts.json shows 6 level-10
+  hits across dc01 (0x1410 from wazuh-agent syscollector — expected
+  background noise, the rule is behaving correctly) and ws01 (both the
+  impacket-style 0x1410 and the mimikatz/procdump-style 0x1fffff).
+- **100120–100123** (Modbus write FCs 05/06/15/16, T0836): dormant by
+  design. Rules match `alert.signature` regex from a Suricata/Zeek
+  feed; no network sensor is deployed in SCEN-002 / SCEN-003. Will
+  validate when a SCEN-001 or SCEN-004 run adds a network-sensor
+  fixture on the OT bridge.
+
+### Known noise surfaced by this session
+- dc01 sees recurring ProcessAccess 0x1410 from
+  `wazuh-agent.exe` (syscollector.dll → sysinfo.dll → KERNELBASE).
+  Rule 100110 is correctly firing on these; they are not malicious.
+  Candidate follow-up: add a `<field>` exclusion on
+  `sourceImage end with wazuh-agent.exe` OR — preferable — lift the
+  filter into `sysmon-config.xml` via a `RuleGroup` exclude so events
+  never reach the agent in the first place, keeping the rule semantics
+  clean for real detection. Not blocking; noted for later tuning pass.
+- dc01 Sysmon events still report `computer: WIN-TEMPLATE.lab.local`
+  (Task #49 — tpl-win2022 needs sysprep /generalize final step to
+  produce unique machine SIDs/hostnames on clone). ws01 reports
+  correctly as `ws01-s1.lab.local`.
+
+Phase 2 of the blue-team SIEM: adds a dedicated SIEM network path, Wazuh
+agents on scenario VMs, and a lab-specific detection rule pack. The
+management-plane isolation rule is preserved — scenario VMs reach the
+manager via vmbr4 only, and vmbr4 has no route to vmbr0.
+
+### Scope boundary
+- Phase 2 delivers the plumbing and rule content. Scenario Terraform
+  modules (SCEN-001 through SCEN-005) are not yet updated to dual-home
+  onto vmbr4; that integration is deferred so each scenario can be
+  converted and retested individually.
+- Per-slot VLAN tagging on vmbr4 (401–420) is also deferred — every
+  agent currently shares the untagged 192.168.4.0/24 L2. Acceptable for
+  in-classroom use but should be tightened before any scenario that
+  teaches lateral movement across slots.
+
+### Added — network plumbing
+- `ansible/roles/proxmox-bridge/` — creates a Linux bridge on the
+  Proxmox host via `/etc/network/interfaces.d/` drop-in, idempotent
+  (won't duplicate an existing stanza), notifies an `ifreload -a`
+  handler only when the config actually changes. Tunables in
+  `defaults/main.yml`: bridge name, CIDR, MTU, VLAN-aware flag.
+- `ansible/playbooks/proxmox-bridges.yml` — single-host play targeting
+  the `proxmox` inventory group; provisions `vmbr4` (192.168.4.1/24,
+  no uplink, no gateway) as the SIEM-only bridge.
+- `ansible/inventory/hosts.yml` — static inventory that `ansible.cfg`
+  was already pointing at but never had a matching file for. Defines
+  `proxmox` (pve01 @ 192.168.1.50) and `wazuh_shared` (192.168.1.60)
+  groups. Per-slot scenario inventories continue to come from
+  `scripts/build`.
+
+### Changed — Terraform module
+- `terraform/modules/vm_clone/` — added optional `second_bridge`,
+  `second_ip`, `second_prefix`, `second_gateway` variables. When set,
+  the module attaches a second virtio NIC and emits a cloud-init
+  `ip_config` for the second interface. Unset by default so existing
+  scenarios continue to deploy single-NIC.
+- `terraform fmt` applied across `terraform/modules/` and
+  `terraform/fixtures/` to fix a ternary-bracket indentation drift at
+  `vm_clone/main.tf:77` that had slipped into main.
+
+### Changed — Wazuh fixture
+- `terraform/fixtures/wazuh-shared/` — fixture now uses
+  `vm_clone.second_bridge = "vmbr4"` with `second_ip = "192.168.4.10"`.
+  vmbr0 IP (192.168.1.60) is unchanged so Ansible management continues
+  to target the mgmt address.
+
+### Added — agent roles
+- `ansible/roles/wazuh-agent-linux/` — installs the Wazuh 4.9 agent
+  `.deb` via apt, registers with the manager via `agent-auth`, writes
+  a slot-group marker file and re-enrolls when the group set changes,
+  ensures the `wazuh-agent` systemd unit is enabled and running.
+- `ansible/roles/wazuh-agent-windows/` — installs the Wazuh 4.9 MSI
+  with install-time `WAZUH_MANAGER` / `WAZUH_REGISTRATION_SERVER` /
+  `WAZUH_AGENT_GROUP` / `WAZUH_AGENT_NAME` properties.
+  - **Group-change idempotency**: the MSI only evaluates
+    `WAZUH_AGENT_GROUP` at first install (gated on
+    `creates_path: ossec.conf`). A marker file at
+    `C:\Program Files (x86)\ossec-agent\ansible-managed-groups.txt`
+    records the last-applied group set. On subsequent runs, if the
+    marker doesn't match the desired `wazuh_agent_groups`, the role
+    invokes `agent-auth.exe -G <new groups>` to re-enroll, then
+    rewrites the marker only after the re-enrollment succeeds.
+  - **Firewall rule hardening**: the outbound-to-manager
+    `win_firewall_rule` task previously swallowed all errors with
+    `ignore_errors: true`; it now uses `register` + `failed_when` so
+    only the benign "already exists" idempotent case is tolerated.
+    Real failures (missing collection, permission denied) now surface.
+
+### Added — playbook
+- `ansible/playbooks/wazuh-agents.yml` — routes hosts in the
+  `wazuh_agents` group to the Linux or Windows role based on
+  `ansible_os_family`. Expected to run after `scripts/build` has
+  generated the per-slot inventory containing `wazuh_manager_address`
+  and `wazuh_agent_groups`.
+
+### Added — detection rule pack
+- `ansible/roles/wazuh-manager/templates/local_rules.xml.j2` — renders
+  to `/var/ossec/etc/rules/local_rules.xml` (owner `root`, group
+  `wazuh`, mode `0640`), notifies `restart wazuh-manager`. Rule IDs
+  sit in the reserved local range (100000–120000):
+  - **100100** (level 8, T1558.003) — Kerberos TGS request (Windows
+    event 4769) with `ticketEncryptionType 0x17` (RC4). A single RC4
+    TGS is the base Kerberoasting signal.
+  - **100101** (level 12, T1558.003) — correlation on 100100: 5+ RC4
+    TGS requests from the same `subjectUserName` in 60s. The sustained
+    burst is the real Kerberoasting tell.
+  - **100110** (level 10, T1003.001) — Sysmon event 10 (ProcessAccess)
+    where `targetImage = lsass.exe` and `grantedAccess` matches one of
+    the handle-mask patterns used by mimikatz / impacket-secretsdump /
+    procdump (0x1410, 0x1010, 0x1018, 0x1038, 0x143a, 0x1fffff).
+  - **100120 – 100123** (level 8–10, T0836) — Modbus write function
+    codes (FC05 single coil, FC06 single register, FC15 multiple
+    coils, FC16 multiple registers) matched against Suricata-style
+    `alert.signature` regex. Dormant without a network sensor
+    (Suricata/Zeek) on the OT zone; no matching input means no
+    spurious alerts.
+
+### Docs
+- `docs/blue-team/SOC_GUIDE.md` — architecture diagram expanded to
+  show dual-homing on vmbr0 + vmbr4 with the mgmt-plane isolation
+  rationale; deploy sequence now starts with `vmbr4` provisioning and
+  uses the static `inventory/hosts.yml`; former "Phase 2 Preview"
+  section replaced with a Phase 2 implementation section documenting
+  the agent roles, slot-group filtering in the dashboard, and the
+  detection rule ID allocation.
+
+## [2026-04-20] — INFRA_AGENT — ADD — Blue Team SIEM: Shared Wazuh Fixture (Phase 1)
+
+Phase 1 of blue-team infrastructure: one shared Wazuh 4.9 all-in-one
+instance on the mgmt subnet provides SIEM and host-based detection for
+the entire lab. Agents-only architecture — no network IDS. The single
+fixture serves all 20 student slots; analysts browse the dashboard at
+`https://192.168.1.60`.
+
+### Scope boundary
+- Phase 1 is VM up + Ansible-configured only. No agents, no network
+  plumbing from lab zones to the SIEM, no portal integration.
+- Phase 2 will add `wazuh-agent-linux` / `wazuh-agent-windows` roles and
+  solve the lab→mgmt reach problem (candidate options: dedicated vmbr4
+  SIEM bridge, dual-homing scenario VMs via `vm_clone.second_bridge`,
+  or a pfSense forward rule from lab zones to 192.168.1.60:1514).
+- Phase 3 adds portal-backend reverse proxy and a "Blue Team SOC" button
+  in portal-ui for instructor/admin roles.
+
+### Added
+- `ansible/roles/wazuh-manager/` — Ubuntu-targeted role that runs the
+  official `wazuh-install.sh -a` installer. Idempotent (guards on
+  `/usr/share/wazuh-dashboard`), async install
+  (`async: 2400 poll: 30`) so the 10–15 minute run doesn't block the
+  playbook. Extracts admin credentials from
+  `/etc/wazuh-install-files.tar` and locks them to root-only `0600`.
+  Tunables in `defaults/main.yml`: version, ports, install script URL,
+  marker path.
+- `terraform/fixtures/wazuh-shared/` — clone-based fixture (NOT a
+  Packer template — uses `tpl-ubuntu-2404` VM ID 102):
+  - VM ID 310, `wazuh-shared`, vmbr0, 192.168.1.60
+  - 4 CPU / 8GB RAM / 100GB disk
+  - `zone_tag=mgmt`, tags: `blue-team`, `siem`, `fixture`
+  - Own Terraform state (not scoped to a lab slot); lives under
+    `terraform/fixtures/` to distinguish from scenario workspaces
+- `ansible/playbooks/wazuh-shared.yml` — two-role play (common-linux +
+  wazuh-manager) against the `wazuh_shared` inventory group
+- `docs/blue-team/SOC_GUIDE.md` — deploy sequence, operational notes,
+  Phase 2/3 preview, troubleshooting matrix
+
+### Architectural decisions
+- **Wazuh-only** — rejected Security Onion's bundled Elastic/Kibana stack
+  in favor of pure GPLv2 Wazuh with its built-in dashboard. ~4GB lighter
+  footprint, single vendor lineage.
+- **Shared, not per-slot** — one fixture serves all 20 slots to conserve
+  the 64GB RAM host budget. Phase 2 agents will tag events by slot so
+  per-student views are still possible via dashboard filters.
+- **Clone + Ansible, not Packer** — matches the AD DC pattern
+  (tpl-win2022 + `ad-domain-controller` role). Keeps Packer templates
+  minimal and pushes product-specific configuration into Ansible, where
+  it's testable and re-runnable.
+- **vmbr0 placement in Phase 1** — analyst dashboard reach is the
+  immediate need; lab-side agent reach is Phase 2. This avoids
+  violating the "vmbr0 unreachable from lab segments" rule before we
+  have a concrete design for that path.
+
+### Resource footprint
+4 CPU / 8GB RAM / 100GB disk — 12.5% of the 64GB host budget. The
+fixture is stateless (no persistent event store) and can be shut down
+between class sessions to reclaim RAM.
+
+## [2026-04-20] — BACKEND_AGENT + FRONTEND_AGENT — FIX — Phase A Code Review
+
+Follow-up to the Phase A scenario lifecycle changes, driven by an `/ultrathink`
+code review. Six fixes applied across the backend slot/VM routes and the lab-ui
+types/components — two HIGH severity TOCTOU races closed, two MEDIUM
+security/correctness holes tightened, two INFO cleanups.
+
+### HIGH — TOCTOU race conditions (portal-backend)
+- 🔒 **`src/api/routes/slots.ts` — `POST /deploy-all`**: replaced the prior
+  bulk `UPDATE ... WHERE status = 'empty'` (which claimed every empty slot at
+  once, racing with in-flight `POST /:slot/deploy`) with a per-slot atomic
+  claim — `UPDATE ... WHERE slot_number = $1 AND status = 'empty' RETURNING *`.
+  Slots that were claimed mid-flight are reported back in `skipped[]`. Wired
+  `appendLog()` into the streaming callback so `/deploy-all` terraform output
+  is persisted to `deploy_log` just like single-slot deploys (previously
+  discarded via `() => {}`).
+- 🔒 **`src/api/routes/slots.ts` — `DELETE /:slot/destroy`**: replaced the
+  SELECT+check+UPDATE sequence with a single `transitionStatus(slot,
+  'destroying', ['running', 'stopped', 'error'])` atomic claim. Concurrent
+  destroy requests — or a destroy arriving during a deploy — now fail
+  deterministically with 409 instead of both proceeding. Added a post-claim
+  guard that aborts to `error` state if the row somehow has no
+  `scenario_id`, pointing the operator at `/force-destroy`.
+
+### MEDIUM — security & correctness (portal-backend)
+- 🔒 **`src/api/routes/vms.ts` — `parseVmId()` narrowing**: accepted range
+  was `100–999`, which included the `100–149` template range. Acting on a
+  template would corrupt every slot that clones from it. Narrowed to
+  `200–999` (lab scenario + infrastructure + scratch only); templates are
+  now rejected at the parse boundary.
+- **`src/api/routes/vms.ts` — `authorizeVm()` null rejection**: previously
+  returned `number | null` and callers passed the nullable through to audit
+  logs. An untagged VM in the lab range is anomalous (every legit lab VM
+  has a `student-slot-NN` tag), so the helper now throws
+  `ForbiddenError('VM is not part of a lab slot')` on null and returns a
+  guaranteed `number`. All five per-VM routes simplify accordingly.
+
+### INFO — cleanup (lab-ui)
+- **`src/types/index.ts`**: `LabSlot.vms` is now optional (`vms?:`). The
+  backend `/api/slots` list endpoint does not hydrate vms; the prior
+  non-optional type forced callers to assume a populated array.
+- **`src/components/AccessSheet.tsx`**: defensive `slot.vms ?? []` guard
+  added to match the new optional type.
+- **`src/pages/Dashboard.tsx`**: fixed `reduce` accumulator to tolerate
+  missing `vms` — `sum + (s.vms?.length ?? 0)` — surfaced by the type
+  narrowing.
+- **`src/api/client.ts`**: renamed `connectDeployStream` →
+  `connectStatusStream` and dropped the unused `_slot` parameter. The
+  function connects to `/ws/status`, not a deploy-specific channel; prior
+  name was misleading. No callers existed, so no migration shims.
+
+### Build verification
+- `portal-backend`: `tsc --project tsconfig.json` — zero errors
+- `lab-ui`: `tsc --noEmit` — zero errors, `vite build` — 300KB JS + 22KB CSS, zero warnings
+
+## [2026-04-20] — BACKEND_AGENT + FRONTEND_AGENT — ADD — Scenario Lifecycle Phase A
+
+### Backend — Proxmox API lifecycle primitives (no Ansible wiring)
+- **Migration 008** expanded `lab_slots.status` CHECK constraint to the 10-state union
+  (`empty`, `deploying`, `running`, `stopped`, `starting`, `stopping`, `configuring`,
+  `resetting`, `error`, `destroying`) and added `last_error TEXT` column for surfacing
+  actionable failure context to operators
+- `src/services/proxmox.ts` — added `shutdownVM`, `startVM`, `stopVM`, `rebootVM`,
+  `rollbackVMToSnapshot`, `listSnapshots`, `hasBaselineSnapshot`, `getVMsByTag`
+  (all call the Proxmox REST API with the terraform token, parameterized for
+  graceful vs. forced semantics)
+- `src/services/scenarioLifecycle.ts` — new orchestrator encapsulating per-slot
+  lifecycle workflows: `shutdownSlot`, `startSlot`, `resetSlot` (snapshot-only
+  rollback across all slot-tagged VMs), `destroySlot` (Terraform destroy + DB
+  clear + workspace cleanup), `forceDestroySlot` (iterate Proxmox tags, best-effort
+  stop+delete each VM, drop Terraform workspace), `getSlotDiagnostics` (DB vs.
+  Proxmox reconciliation with orphan detection and baseline-snapshot audit)
+- `src/services/terraform.ts` — added `cleanupWorkspace` that selects default,
+  deletes the per-slot workspace, and removes any dangling `.terraform/` state
+  so re-deploys start cold
+- `src/api/routes/slots.ts` — added six endpoints: `POST /:slot/shutdown`,
+  `POST /:slot/start`, `POST /:slot/reset`, `POST /:slot/force-destroy`,
+  `GET /:slot/diagnostics`; all instructor/admin-gated, all emit audit_log entries
+- `src/api/routes/vms.ts` (new) — mounted at `/api/vms/:vmId/{start,shutdown,stop,reboot,rollback}`;
+  ownership enforcement: students restricted to VMs whose tags include their slot number,
+  instructors/admins can touch any lab-tagged VM
+
+### portal-ui — Instructor + student surface
+- `src/types/index.ts` — SlotStatus expanded to 10 states, added `VmDiagnostic`,
+  `SlotDiagnostics`, `last_error?` on `LabSlot`
+- `src/api/client.ts` — added all six slot lifecycle calls, `fetchSlotDiagnostics`,
+  and the five per-VM mutations
+- `src/hooks/useSlots.ts` — added `useSlotDiagnostics` (15s refetch),
+  `useSlotMutations` (deploy/destroy/reset/shutdown/start/forceDestroy with unified
+  invalidation of `slots`, `slotVMs`, `slotDiagnostics`), `useVMMutations`
+- `src/components/shared/ScenarioControlPanel.tsx` — status-dispatched control row:
+  empty→Deploy; running→Shutdown+Reset+Destroy; stopped→Start+Reset+Destroy;
+  error→Redeploy+Destroy+ForceDestroy; transitional states disable all controls and
+  show a "operation in progress" loader. Two-click confirmation on all destructive
+  actions. Surfaces `last_error` banner when present.
+- `src/components/shared/DiagnosticsPanel.tsx` — DB-vs-Proxmox reconciliation view:
+  2×2 fact grid (DB status, scenario, VM count, workspace), advisories list,
+  missing-baseline pills, per-VM diagnostic rows with snapshot presence indicator,
+  orphan-VM section with Force Destroy callout, 15s auto-refresh with manual refresh
+- `src/components/shared/PerVmControls.tsx` — per-VM lifecycle row: Start (when stopped),
+  Shutdown/Reboot/Stop (when running, Stop is 2-click), Rollback to baseline (2-click,
+  purple variant); compact mode collapses labels to icons for inline use
+- `src/pages/SlotManagement.tsx` — wired ScenarioControlPanel + DiagnosticsPanel toggle +
+  PerVmControls rows under each VM, replacing the hand-rolled deploy/destroy buttons
+
+### lab-ui — Instructor dashboard (this session)
+- Mirrored the three shared components into `lab-ui/src/components/`:
+  `PerVmControls.tsx`, `DiagnosticsPanel.tsx`, `ScenarioControlPanel.tsx` — adapted
+  for lab-ui's `VMStatus`/`Scenario.name` conventions and pre-unwrapped
+  `fetchSlotDiagnostics` response shape
+- `src/types/index.ts` — SlotStatus expanded to 10 states, STATUS_COLORS map expanded,
+  `PULSING_STATUSES` set, `VmDiagnostic`/`SlotDiagnostics`/`last_error?` added
+- `src/api/client.ts` — added shutdown/start/forceDestroy slot calls, diagnostics fetch,
+  and the five per-VM mutations
+- `src/hooks/useSlots.ts` — added `useSlotDiagnostics`, refactored `useSlotMutations`
+  to cover all six slot actions, added `useVMMutations`
+- `src/pages/ScenarioDetail.tsx` — replaced `DeployControls` with `ScenarioControlPanel`
+  wired to `useSlotMutations`, kept `ActiveScenariosModal` conflict-detection flow,
+  added `DiagnosticsPanel` toggle and `PerVmControls` rows under each `VMStatusRow`
+- `src/pages/SlotsOverview.tsx` — promoted selected-slot detail card to full lifecycle
+  surface: ScenarioControlPanel + collapsible DiagnosticsPanel + per-VM controls
+- Removed `src/components/DeployControls.tsx` (superseded by ScenarioControlPanel)
+
+### Scope boundary
+- Phase A is Proxmox API only — no Ansible re-run on start, no automatic
+  snapshot provisioning, no template healing. Deploy still runs the full
+  Terraform+Ansible pipeline via existing `deployScenario` mutation.
+- Phase B (Ansible post-start reconfigure) and Phase C (polish: status stream,
+  deploy progress bar, error-state walkthroughs) are intentionally deferred.
+
+### Build verification
+- `portal-backend`: `tsc --project tsconfig.json` — zero errors
+- `portal-ui`: `tsc --noEmit` — zero errors, `vite build` — 295KB JS + 68KB noVNC + 22KB CSS, zero warnings
+- `lab-ui`: `tsc --noEmit` — zero errors, `vite build` — 300KB JS + 22KB CSS, zero warnings
+
 ## [2026-04-07] — INFRA_AGENT — FIX — SCEN-003/004 Deploy-Test Cycles
 
 ### SCEN-003: APT Lateral Movement — Deploy-Test (Slot 1)

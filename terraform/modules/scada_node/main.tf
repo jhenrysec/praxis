@@ -16,11 +16,14 @@ module "vm" {
   disk_size = var.disk_size
   datastore = var.datastore
 
-  network_bridge = var.network_bridge
-  second_bridge  = var.second_bridge
-  ip_address     = var.ip_address
-  prefix_length  = var.prefix_length
-  gateway        = var.gateway
+  network_bridge       = var.network_bridge
+  second_bridge        = var.second_bridge
+  second_ip_address    = var.second_ip_address
+  second_prefix_length = var.second_prefix_length
+  second_gateway       = var.second_gateway
+  ip_address           = var.ip_address
+  prefix_length        = var.prefix_length
+  gateway              = var.gateway
 
   admin_user     = var.admin_user
   ssh_public_key = var.ssh_public_key

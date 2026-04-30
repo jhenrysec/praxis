@@ -1,0 +1,56 @@
+---
+# ansible/roles/wazuh-manager/defaults/main.yml
+# Tunables for the shared Wazuh all-in-one fixture.
+
+wazuh_version: "4.9"
+wazuh_install_script_url: "https://packages.wazuh.com/4.9/wazuh-install.sh"
+wazuh_install_script_path: "/root/wazuh-install.sh"
+
+# Idempotency guard — if this path exists, the installer is skipped.
+wazuh_install_marker: "/usr/share/wazuh-dashboard"
+
+# Post-install artifacts produced by wazuh-install.sh -a. The installer writes
+# the tarball to its current working directory; the role runs it from /root,
+# so the tar lands at /root/wazuh-install-files.tar.
+wazuh_credentials_archive: "/root/wazuh-install-files.tar"
+wazuh_credentials_extract_dir: "/root/wazuh-install-files"
+
+# Standard Wazuh ports — documented here for Phase 2 agent configuration.
+wazuh_port_agents: 1514          # TCP — agent event forwarding
+wazuh_port_enrollment: 1515      # TCP — agent enrollment
+wazuh_port_api: 55000            # TCP — Wazuh API
+wazuh_port_dashboard: 443        # TCP — web UI
+
+# Lab-specific detection rules. Deployed to /var/ossec/etc/rules/
+# on the manager and reloaded via `restart wazuh-manager` handler.
+wazuh_local_rules_path: /var/ossec/etc/rules/local_rules.xml
+wazuh_local_rules_owner: root
+wazuh_local_rules_group: wazuh
+wazuh_local_rules_mode: "0640"
+
+# ── Dashboard reverse-proxy config ──────────────────────────────────────────
+# Portal-backend reverse-proxies the Wazuh dashboard at /api/soc/*. Setting
+# server.basePath tells OpenSearch Dashboards it is mounted at that prefix
+# so absolute URLs it emits (SPA routes, bundle references) resolve through
+# the proxy instead of escaping to the Wazuh origin.
+#
+# Set wazuh_dashboard_base_path to "" (empty) to leave the dashboard at the
+# origin root — the role will not manage the basePath block when empty.
+wazuh_dashboard_config_path: /etc/wazuh-dashboard/opensearch_dashboards.yml
+wazuh_dashboard_base_path: "/api/soc"
+
+# ── Agent enrollment password (authd) ───────────────────────────────────────
+# vmbr4 is an untagged shared L2 across all 20 student slots, so an agent in
+# slot N can reach the manager's enrollment port (1515/tcp) from any other
+# slot. Per-slot VLAN tagging (401–420) is the long-term isolation plan;
+# enrollment passwords are the near-term control.
+#
+# Each line in authd.pass is treated as a valid enrollment secret by Wazuh,
+# so populating this list with per-slot secrets lets the manager accept
+# enrollment from any slot without all slots sharing a single password.
+#
+# Empty list (default) leaves authd in open-enrollment mode — back-compat
+# with pre-hardening deployments.
+wazuh_enrollment_passwords: []
+wazuh_authd_config_path: /var/ossec/etc/ossec.conf
+wazuh_authd_pass_path: /var/ossec/etc/authd.pass
